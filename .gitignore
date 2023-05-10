@@ -1,2 +1,16 @@
 .idea
 *__pycache__*
+
+/data/
+/examples/
+/build/
+/examples/
+/EvoMol.egg-info/
+/evomol/test/
+/lib/
+/.ipynb_checkpoints/
+
+debug.py
+extract_descriptors.ipynb
+random_action.ipynb
+acetylsalicylic_acid.smi
