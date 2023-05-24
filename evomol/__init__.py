@@ -349,8 +349,10 @@ def _parse_mutation_parameters(explicit_search_parameters, evaluation_strategy, 
                                                                  neighbour_gen_strategy=explicit_search_parameters[
                                                                      "neighbour_generation_strategy"],
                                                                  custom_filter_function=search_space_parameters[
-                                                                     "custom_filter_function"
-                                                                 ])
+                                                                     "custom_filter_function"],
+                                                                 valid_ecfp_file_path=explicit_IO_parameters[
+                                                                        "valid_ecfp_file_path"]
+                                                                 )
 
 
     return mutation_strategy
@@ -435,7 +437,9 @@ def _extract_explicit_IO_parameters(parameters_dict):
         "evaluation_strategy_parameters": input_IO_parameters[
             "evaluation_strategy_parameters"] if "evaluation_strategy_parameters" in input_IO_parameters else None,
         "silly_molecules_reference_db_path": input_IO_parameters[
-            "silly_molecules_reference_db_path"] if "silly_molecules_reference_db_path" in input_IO_parameters else None
+            "silly_molecules_reference_db_path"] if "silly_molecules_reference_db_path" in input_IO_parameters else None,
+        "valid_ecfp_file_path": input_IO_parameters[
+            "valid_ecfp_file_path"] if "valid_ecfp_file_path" in input_IO_parameters else None,
     }
 
     for parameter in input_IO_parameters:
