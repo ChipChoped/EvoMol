@@ -68,6 +68,13 @@ class ActionSpace(ABC):
         """
 
     @abstractmethod
+    def get_context(self, action_id, parameters, *args, **kwargs):
+        """
+        Gives the positions of the atoms that were modified
+        """
+        pass
+
+    @abstractmethod
     def execute_action(self, action_id, parameters, qu_mol_graph):
         """
         Executing the action identified by the given action id to the given molecular graph
@@ -132,6 +139,9 @@ class CutAtomV2ActionSpace(ActionSpace):
 
     def get_action_space_size(self, parameters, qu_mol_graph):
         return parameters.max_heavy_atoms
+
+    def get_context(self, action_id, parameters, *args, **kwargs):
+        raise Exception("Method not implemented yet")
 
     def execute_action(self, action_id, parameters, qu_mol_graph):
         super(CutAtomV2ActionSpace, self).execute_action(action_id, parameters, qu_mol_graph)
@@ -224,6 +234,9 @@ class InsertCarbonAtomV2ActionSpace(ActionSpace):
 
         # The action space is of size sum from 1 to max_heavy_atoms -1
         return parameters.max_heavy_atoms * (parameters.max_heavy_atoms - 1) // 2
+
+    def get_context(self, action_id, parameters, *args, **kwargs):
+        return self._action_id_to_atoms_idx(action_id, parameters)
 
     def execute_action(self, action_id, parameters, qu_mol_graph):
         super(InsertCarbonAtomV2ActionSpace, self).execute_action(action_id, parameters, qu_mol_graph)
@@ -373,6 +386,24 @@ class AddAtomActionSpace(ActionSpace):
             # The size of the action space is equal to the cardinality of the set of insertable atom types
             return len(parameters.accepted_atoms)
 
+    def get_context(self, action_id, parameters, *args, **kwargs):
+        # Converting action id to coordinates in the action space
+        i = action_id // len(parameters.accepted_atoms)
+        j = action_id % len(parameters.accepted_atoms)
+
+        # # Computing atom type that will be added on current action
+        # new_atom_type = parameters.accepted_atoms[j]
+
+        # Old atom type initialization
+        support_atom = i
+
+        # Computing atom type of the atom on which the new atom will be bonded (if it is defined)
+        if i >= 1:
+             support_atom = i - 1
+        #     old_at_type = qu_mol_graph.get_atom_type(old_at_id)
+
+        return [support_atom, j]
+
     def execute_action(self, action_id, parameters, qu_mol_graph):
         super(AddAtomActionSpace, self).execute_action(action_id, parameters, qu_mol_graph)
 
@@ -460,6 +491,9 @@ class RemoveAtomActionSpace(ActionSpace):
         # The number of removable atoms is the number of definable atoms
         return parameters.max_heavy_atoms
 
+    def get_context(self, action_id, parameters, *args, **kwargs):
+        return [action_id]
+
     def execute_action(self, action_id, parameters, qu_mol_graph):
         super(RemoveAtomActionSpace, self).execute_action(action_id, parameters, qu_mol_graph)
 
@@ -538,6 +572,9 @@ class MoveFunctionalGroupActionSpace(ActionSpace):
 
     def get_action_expl(self, id_action, parameters, qu_mol_graph):
         return ""
+
+    def get_context(self, action_id, parameters, *args, **kwargs):
+        raise Exception("Method not implemented yet")
 
     def execute_action(self, action_id, parameters, qu_mol_graph):
 
@@ -680,6 +717,9 @@ class RemoveGroupActionSpace(ActionSpace):
 
     def get_action_expl(self, id_action, parameters, qu_mol_graph):
         return ""
+
+    def get_context(self, action_id, parameters, *args, **kwargs):
+        raise Exception("Method not implemented yet")
 
     def execute_action(self, action_id, parameters, qu_mol_graph):
 
@@ -839,6 +879,19 @@ class ChangeBondActionSpace(ActionSpace):
         # The action space is of size sum from 1 to max_heavy_atoms -1 multiplied by the number of possible bond types
         return (parameters.max_heavy_atoms * (parameters.max_heavy_atoms - 1) // 2) * 4
 
+    def get_context(self, action_id, parameters, *args, **kwargs):
+        if not 'qu_mol_graph' in kwargs:
+            raise Exception("qu_mol_graph parameter cannot be of type None for the ChangeBondActionSpace class")
+
+        # Computing indices of both atoms involved in the action
+        at1_idx, at2_idx = self._action_id_to_atoms_idx(action_id, parameters)
+
+        # Extracting the numerical bond type between the atoms and the bond type that will be formed
+        curr_bond_type_num = kwargs['qu_mol_graph'].get_bond_type_num(at1_idx, at2_idx)
+        bond_to_form_type_num = self._action_id_to_bond_to_form(action_id, parameters)
+
+        return [at1_idx, at2_idx, curr_bond_type_num, bond_to_form_type_num]
+
     def execute_action(self, action_id, parameters, qu_mol_graph):
         super(ChangeBondActionSpace, self).execute_action(action_id, parameters, qu_mol_graph)
 
@@ -944,6 +997,9 @@ class SubstituteAtomActionSpace(ActionSpace):
 
     def get_action_space_size(self, parameters, qu_mol_graph):
         return len(parameters.accepted_atoms) * parameters.max_heavy_atoms
+
+    def get_context(self, action_id, parameters, *args, **kwargs):
+        raise Exception("Method not implemented yet")
 
     def execute_action(self, action_id, parameters, qu_mol_graph):
         super(SubstituteAtomActionSpace, self).execute_action(action_id, parameters, qu_mol_graph)
