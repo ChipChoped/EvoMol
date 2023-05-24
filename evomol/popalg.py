@@ -107,7 +107,7 @@ class PopAlg:
                  output_folder_path="EvoMol_model/", pop_max_size=1000, k_to_replace=10, save_n_steps=100,
                  print_n_steps=1, kth_score_to_record=1, record_history=False, problem_type="max", selection="best",
                  kth_score_to_record_key="total", shuffle_init_pop=False, external_tabu_list=None,
-                 record_all_generated_individuals=False, evaluation_strategy_parameters=None, sulfur_valence=6):
+                 record_all_generated_individuals=False, evaluation_strategy_parameters=None, sulfur_valence=6, record_trained_weights=False):
         """
         :param evaluation_strategy: EvaluationStrategy instance to evaluate individuals
         :param mutation_strategy: MutationStrategy instance to mutate solutions and find improvers
@@ -131,6 +131,7 @@ class PopAlg:
         :param evaluation_strategy_parameters: allows to set evaluation_strategy parameters depending on context.
         Available contexts are "evaluate_new_solution" and "evaluate_init_pop"
         :param sulfur_valence: maximum valence of sulfur atoms (default : 6)
+        :param record_trained_weights: whether to record the weights of the trained model
         """
 
         # Loading problem type
@@ -160,6 +161,9 @@ class PopAlg:
 
         # All inserted individuals recording parameter
         self.record_all_generated_individuals = record_all_generated_individuals
+
+        # Recording trained weights
+        self.record_trained_weights = record_trained_weights
 
         # Selection parameter
         self.selection = selection
@@ -449,6 +453,42 @@ class PopAlg:
                             smi = self.removed_actions_score_smi_tuple[removed_act_history][2]
 
                             writer.writerow([removed_act_history, total_score] + list(scores) + [smi])
+
+            # ### Trained weights data ###
+            if self.record_trained_weights:
+                if self.curr_step_id == 0:
+                    with open(join(self.output_folder_path, 'addA_weights.csv'), "w", newline='') as f:
+                        w_addA = self.mutation_strategy.neighbour_gen_strategy.w_addA.flatten()
+                        writer = csv.writer(f)
+                        writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_addA))])
+                        writer.writerow([str(self.curr_step_id - 1)] + list(w_addA))
+
+                    with open(join(self.output_folder_path, 'rmA_weights.csv'), "w", newline='') as f:
+                        w_rmA = self.mutation_strategy.neighbour_gen_strategy.w_rmA.flatten()
+                        writer = csv.writer(f)
+                        writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_rmA))])
+                        writer.writerow([str(self.curr_step_id - 1)] + list(w_rmA))
+
+                    with open(join(self.output_folder_path, 'chB_weights.csv'), "w", newline='') as f:
+                        w_chB = self.mutation_strategy.neighbour_gen_strategy.w_chB.flatten()
+                        writer = csv.writer(f)
+                        writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_chB))])
+                        writer.writerow([str(self.curr_step_id - 1)] + list(w_chB))
+                else:
+                    with open(join(self.output_folder_path, 'addA_weights.csv'), "a", newline='') as f:
+                        w_addA = self.mutation_strategy.neighbour_gen_strategy.w_addA.flatten()
+                        writer = csv.writer(f)
+                        writer.writerow([str(self.curr_step_id - 1)] + list(w_addA))
+
+                    with open(join(self.output_folder_path, 'rmA_weights.csv'), "a", newline='') as f:
+                        w_rmA = self.mutation_strategy.neighbour_gen_strategy.w_rmA.flatten()
+                        writer = csv.writer(f)
+                        writer.writerow([str(self.curr_step_id - 1)] + list(w_rmA))
+
+                    with open(join(self.output_folder_path, 'chB_weights.csv'), "a", newline='') as f:
+                        w_chB = self.mutation_strategy.neighbour_gen_strategy.w_chB.flatten()
+                        writer = csv.writer(f)
+                        writer.writerow([str(self.curr_step_id - 1)] + list(w_chB))
 
             # ### Errors data ###
             with open(join(self.output_folder_path, 'errors.csv'), "w", newline='') as f:
