@@ -330,7 +330,7 @@ def _parse_mutation_parameters(explicit_search_parameters, evaluation_strategy, 
     :return: Returning a MutationStrategy instance
     """
 
-    mutation_strategy = KRandomGraphOpsImprovingMutationStrategy(k=explicit_search_parameters["mutation_max_depth"],
+    mutation_strategy = explicit_search_parameters["improving_mutation_strategy"](k=explicit_search_parameters["mutation_max_depth"],
                                                                  max_n_try=explicit_search_parameters[
                                                                      "mutation_find_improver_tries"],
                                                                  evaluation_strategy=evaluation_strategy,
@@ -388,7 +388,9 @@ def _extract_explicit_search_parameters(parameters_dict):
         "shuffle_init_pop": input_search_parameters[
             "shuffle_init_pop"] if "shuffle_init_pop" in input_search_parameters else False,
         "neighbour_generation_strategy": input_search_parameters["neighbour_generation_strategy"] if \
-            "neighbour_generation_strategy" in input_search_parameters else RandomActionTypeSelectionStrategy()}
+            "neighbour_generation_strategy" in input_search_parameters else RandomActionTypeSelectionStrategy(),
+        "improving_mutation_strategy": input_search_parameters["improving_mutation_strategy"] if \
+            "improving_mutation_strategy" in input_search_parameters else KRandomGraphOpsImprovingMutationStrategy}
 
     for parameter in input_search_parameters:
         if parameter not in explicit_search_parameters:
@@ -428,6 +430,8 @@ def _extract_explicit_IO_parameters(parameters_dict):
         "record_history": input_IO_parameters["record_history"] if "record_history" in input_IO_parameters else False,
         "record_all_generated_individuals": input_IO_parameters[
             "record_all_generated_individuals"] if "record_all_generated_individuals" in input_IO_parameters else False,
+        "record_trained_weights": input_IO_parameters[
+            "record_trained_weights"] if "record_trained_weights" in input_IO_parameters else False,
         "evaluation_strategy_parameters": input_IO_parameters[
             "evaluation_strategy_parameters"] if "evaluation_strategy_parameters" in input_IO_parameters else None,
         "silly_molecules_reference_db_path": input_IO_parameters[
@@ -518,6 +522,7 @@ def _build_instance(evaluation_strategy, mutation_strategy, stop_criterion_strat
         problem_type=explicit_search_parameters_dict["problem_type"],
         record_history=explicit_IO_parameters_dict["record_history"],
         record_all_generated_individuals=explicit_IO_parameters_dict["record_all_generated_individuals"],
+        record_trained_weights=explicit_IO_parameters_dict["record_trained_weights"],
         shuffle_init_pop=explicit_search_parameters_dict["shuffle_init_pop"],
         external_tabu_list=explicit_IO_parameters_dict["external_tabu_list"],
         evaluation_strategy_parameters=explicit_IO_parameters_dict["evaluation_strategy_parameters"],
