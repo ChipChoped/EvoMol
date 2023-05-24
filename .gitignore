@@ -10,7 +10,10 @@
 /lib/
 /.ipynb_checkpoints/
 
-debug.py
-extract_descriptors.ipynb
-random_action.ipynb
-acetylsalicylic_acid.smi
+/debug.py
+/extract_descriptors.ipynb
+/random_action.ipynb
+/qlearning_script.py
+/qed_script.py
+/initial_molecule.smi
+/random_script.py
