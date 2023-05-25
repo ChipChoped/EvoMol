@@ -1,7 +1,7 @@
 class Observer:
 
-    def __init__(self, observable):
-        observable.subscribe(self)
+    def __init__(self):
+        pass
 
     def update(self, *args, **kwargs):
         pass
@@ -10,14 +10,14 @@ class Observer:
 class Observable:
 
     def __init__(self):
-        self._observers = []
+        self.observers = []
 
     def subscribe(self, observer):
-        self._observers.append(observer)
+        self.observers.append(observer)
 
     def notify_observers(self, *args, **kwargs):
-        for obs in self._observers:
+        for obs in self.observers:
             obs.update(self, *args, **kwargs)
 
     def unsubscribe(self, observer):
-        self._observers.remove(observer)
+        self.observers.remove(observer)
