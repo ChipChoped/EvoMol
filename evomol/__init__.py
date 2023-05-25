@@ -322,8 +322,31 @@ def _parse_action_space(parameters_dict):
     return action_spaces, action_spaces_parameters, explicit_action_space_parameters
 
 
+def _parse_neighbour_generation_parameters(explicit_search_parameters, evaluation_strategy, action_spaces,
+                                             action_spaces_parameters, search_space_parameters, explicit_IO_parameters):
+    """
+    Parsing neighbour generation parameters
+    :param parameters_dict:
+    :return: Returning a NeighbourGenerationStrategy instance
+    """
+
+    if explicit_search_parameters["neighbour_generation_strategy"] == RandomActionTypeSelectionStrategy:
+        neighbour_generation_strategy = RandomActionTypeSelectionStrategy()
+    else:
+        neighbour_generation_strategy = explicit_search_parameters["neighbour_generation_strategy"](
+            depth=explicit_search_parameters["mutation_max_depth"],
+            number_of_accepted_atoms=len(action_spaces_parameters.accepted_atoms),
+            alpha=explicit_search_parameters["alpha"],
+            epsilon=explicit_search_parameters["epsilon"],
+            gamma=explicit_search_parameters["gamma"],
+            valid_ecfp_file_path=explicit_IO_parameters["valid_ecfp_file_path"])
+
+    return neighbour_generation_strategy
+
+
 def _parse_mutation_parameters(explicit_search_parameters, evaluation_strategy, action_spaces,
-                               action_spaces_parameters, search_space_parameters, explicit_IO_parameters):
+                               action_spaces_parameters, search_space_parameters, explicit_IO_parameters,
+                               neighbour_generation_strategy):
     """
     Parsing mutation parameters
     :param parameters_dict:
@@ -346,12 +369,9 @@ def _parse_mutation_parameters(explicit_search_parameters, evaluation_strategy, 
                                                                      "silly_molecules_reference_db_path"],
                                                                  sascore_threshold=search_space_parameters[
                                                                      "sascore_threshold"],
-                                                                 neighbour_gen_strategy=explicit_search_parameters[
-                                                                     "neighbour_generation_strategy"],
+                                                                 neighbour_gen_strategy=neighbour_generation_strategy,
                                                                  custom_filter_function=search_space_parameters[
-                                                                     "custom_filter_function"],
-                                                                 valid_ecfp_file_path=explicit_IO_parameters[
-                                                                        "valid_ecfp_file_path"]
+                                                                     "custom_filter_function"]
                                                                  )
 
 
@@ -390,9 +410,13 @@ def _extract_explicit_search_parameters(parameters_dict):
         "shuffle_init_pop": input_search_parameters[
             "shuffle_init_pop"] if "shuffle_init_pop" in input_search_parameters else False,
         "neighbour_generation_strategy": input_search_parameters["neighbour_generation_strategy"] if \
-            "neighbour_generation_strategy" in input_search_parameters else RandomActionTypeSelectionStrategy(),
+            "neighbour_generation_strategy" in input_search_parameters else RandomActionTypeSelectionStrategy,
         "improving_mutation_strategy": input_search_parameters["improving_mutation_strategy"] if \
-            "improving_mutation_strategy" in input_search_parameters else KRandomGraphOpsImprovingMutationStrategy}
+            "improving_mutation_strategy" in input_search_parameters else KRandomGraphOpsImprovingMutationStrategy,
+        "alpha": input_search_parameters["alpha"] if "alpha" in input_search_parameters else 0.01,
+        "epsilon": input_search_parameters["epsilon"] if "epsilon" in input_search_parameters else 0.2,
+        "gamma": input_search_parameters["gamma"] if "gamma" in input_search_parameters else 0.99,
+    }
 
     for parameter in input_search_parameters:
         if parameter not in explicit_search_parameters:
@@ -599,13 +623,22 @@ def run_model(parameters_dict):
     # Building action space
     action_spaces, action_spaces_parameters, explicit_action_space_parameters = _parse_action_space(parameters_dict)
 
+    neighbour_generation_strategy = _parse_neighbour_generation_parameters(explicit_search_parameters=explicit_search_parameters_dict,
+                                                                         evaluation_strategy=evaluation_strategy,
+                                                                         action_spaces=action_spaces,
+                                                                         action_spaces_parameters=action_spaces_parameters,
+                                                                         search_space_parameters=explicit_action_space_parameters,
+                                                                         explicit_IO_parameters=explicit_IO_parameters_dict)
+
+
     # Building mutation strategy
     mutation_strategy = _parse_mutation_parameters(explicit_search_parameters=explicit_search_parameters_dict,
                                                    evaluation_strategy=evaluation_strategy,
                                                    action_spaces=action_spaces,
                                                    action_spaces_parameters=action_spaces_parameters,
                                                    search_space_parameters=explicit_action_space_parameters,
-                                                   explicit_IO_parameters=explicit_IO_parameters_dict)
+                                                   explicit_IO_parameters=explicit_IO_parameters_dict,
+                                                   neighbour_generation_strategy=neighbour_generation_strategy)
 
     # Building stop criterion strategy
     stop_criterion_strategy = _parse_stop_criterion_strategy(
