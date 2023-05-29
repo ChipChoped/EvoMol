@@ -322,8 +322,8 @@ class QLearningGraphOpsImprovingMutationStrategy(MutationStrategy, Observable):
 
             # Only evaluating the neighbour if it has not been encountered yet in the population and if it is valid
             # if the filters are enabled and if it is not in the external tabu list
-            if not failed_tabu_pop and not failed_tabu_external and not failed_quality_filter and \
-                    not failed_sillywalks_filter and not failed_sascore_filter and not failed_custom_filter:
+            if not failed_quality_filter and not failed_sillywalks_filter and \
+                    not failed_sascore_filter and not failed_custom_filter:
 
                 try:
                     tstart = time.time()
@@ -369,7 +369,23 @@ class QLearningGraphOpsImprovingMutationStrategy(MutationStrategy, Observable):
                 if is_improver:
                     return mutated_ind, desc, mutated_total_score, mutated_scores, evaluation_time
 
-            # The mutated solution did not pass the filters
+            # The mutated solution did not pass the tabu filters
+            elif failed_tabu_pop or failed_tabu_external:
+                generated_ind_recorder.record_individual(individual=mutated_ind,
+                                                         total_score=None,
+                                                         scores=np.full((len(self.evaluation_strategy.keys(), )), None),
+                                                         objective_calls=self.evaluation_strategy.n_calls,
+                                                         success_obj_computation=False,
+                                                         improver=False,
+                                                         failed_tabu_pop=failed_tabu_pop,
+                                                         failed_tabu_external=failed_tabu_external,
+                                                         failed_rdfilters=failed_quality_filter,
+                                                         failed_sillywalks=failed_sillywalks_filter,
+                                                         failed_sascore=failed_sascore_filter,
+                                                         failed_custom_filter=failed_custom_filter,
+                                                         obj_computation_time=None)
+
+            # The mutated solution did not pass the filters (tabu lists excluded)
             else:
                 generated_ind_recorder.record_individual(individual=mutated_ind,
                                                          total_score=None,
