@@ -329,38 +329,31 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
     def extract_features(self, molgraph_builder, ecfps, valid_action, action_space):
         """
         :param molgraph_builder: molecule graph builder
-        :param molecule: molecule
         :param ecfps: list of ECFP-0 of the molecule
         :param valid_action: valid action to apply
         :param action_space: action space
         :return: feature vector of the current state for a given action
         """
 
-        features = None
         qry_ecfp = set()
         context = action_space.get_context(valid_action[1], molgraph_builder.parameters, qu_mol_graph=molgraph_builder.qu_mol_graph)
 
         # Getting the ECFP-0 where the action will be applied and translating it into
         # a float vector of valid ECFP-0
         if valid_action[0] == 'AddA':
-            for k in ecfps.keys():
-                for (atom_id, rad) in ecfps[k]:
-                    if atom_id == context[0]:
-                        qry_ecfp.add(k)
-                        break
+            # Getting the ECFPs of the atom where the action will be applied
+            for i in range(len(ecfps[context[0]])):
+                qry_ecfp.add(ecfps[context[0]][i])
 
-            # Getting the valid ECFP-0 for the current context
+            # Getting the valid ECFPs for the current context
             valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
 
             # Computing the feature vector
             features = np.zeros((self.number_of_contexts + 1) * len(molgraph_builder.parameters.accepted_atoms))
             features[self.binary_vector_to_index(valid_ecfps, context[1])] = 1.
         elif valid_action[0] == 'RmA':
-            for k in ecfps.keys():
-                for (atom_id, rad) in ecfps[k]:
-                    if atom_id == context[0]:
-                        qry_ecfp.add(k)
-                        break
+            for i in range(len(ecfps[context[0]])):
+                qry_ecfp.add(ecfps[context[0]][i])
 
             valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
 
@@ -368,29 +361,22 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
             features[self.binary_vector_to_index(valid_ecfps)] = 1.
         elif valid_action[0] == 'ChB':
             # Atom on the left of the bond
-            for k in ecfps.keys():
-                for (atom_id, rad) in ecfps[k]:
-                    if atom_id == context[0]:
-                        qry_ecfp.add(k)
-                        break
-
+            for i in range(len(ecfps[context[0]])):
+                qry_ecfp.add(ecfps[context[0]][i])
             valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
 
             features = np.zeros((self.number_of_contexts + 1) * 4)
-            features[self.binary_vector_to_index(valid_ecfps, context[2])] = 1.
+            features[self.binary_vector_to_index(valid_ecfps, context[3])] = 1.
 
             # Atom on the right of the bond
             qry_ecfp_ = set()
 
-            for k in ecfps.keys():
-                for (atom_id, rad) in ecfps[k]:
-                    if atom_id == context[1]:
-                        qry_ecfp_.add(k)
-                        break
+            for i in range(len(ecfps[context[1]])):
+                qry_ecfp_.add(ecfps[context[1]][i])
 
             valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp_)
 
-            features[self.binary_vector_to_index(valid_ecfps, context[2])] = 1.
+            features[self.binary_vector_to_index(valid_ecfps, context[3])] = 1.
         else:
             raise ValueError('Invalid action')
 
@@ -567,12 +553,21 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
         # Getting the valid actions for the current context
         action_mask = molgraph_builder.get_valid_mask_from_key(executed_action[0])
         action_space = molgraph_builder.action_spaces_d[executed_action[0]]
-        molecule = molgraph_builder.qu_mol_graph
         valid_actions = np.nonzero(action_mask)
 
         # Getting the ECFP of the current molecule
-        ecfps = {}
-        AllChem.GetMorganFingerprint(MolFromSmiles(molecule.to_smiles()), 0, bitInfo=ecfps)
+        ecfps_trace = {}
+        AllChem.GetMorganFingerprint(MolFromSmiles(molgraph_builder.qu_mol_graph.to_smiles()), 0, bitInfo=ecfps_trace)
+
+        # Putting atom ids as keys and the corresponding ECFP and radius as values
+        ecfps = dict()
+
+        for k in ecfps_trace.keys():
+            for (atom_id, rad) in ecfps_trace[k]:
+                if not atom_id in ecfps.keys():
+                    ecfps[atom_id] = list()
+
+                ecfps[atom_id].append(k)
 
         # Getting the features of the current context
         current_features = self.current_features[self.depth - self.depth_counter]
@@ -650,8 +645,18 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
             molgraph_builder = molgraph_builder.copy()
 
             # Getting the ECFP of the current molecule
-            ecfps = {}
-            AllChem.GetMorganFingerprint(MolFromSmiles(molgraph_builder.qu_mol_graph.to_smiles()), 0, bitInfo=ecfps)
+            ecfps_trace = {}
+            AllChem.GetMorganFingerprint(MolFromSmiles(molgraph_builder.qu_mol_graph.to_smiles()), 0, bitInfo=ecfps_trace)
+
+            # Putting atom ids as keys and the corresponding ECFP and radius as values
+            ecfps = dict()
+
+            for k in ecfps_trace.keys():
+                for (atom_id, rad) in ecfps_trace[k]:
+                    if not atom_id in ecfps.keys():
+                        ecfps[atom_id] = list()
+
+                    ecfps[atom_id].append(k)
 
             # Selecting the action to be executed
             chosen_action = self.select_action_type([], evaluation_strategy, ecfps, molgraph_builder)
