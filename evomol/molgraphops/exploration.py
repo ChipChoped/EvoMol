@@ -239,13 +239,15 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
     """
 
     def __init__(self, depth, number_of_accepted_atoms, alpha, epsilon, gamma,
-                 valid_ecfp_file_path=None, preselect_action_type=True):
+                 valid_ecfp_file_path=None, init_weights_file_path=None, preselect_action_type=True):
         """
         :param depth: number of consecutive executed actions before evaluation
         :param number_of_accepted_atoms: number of accepted atoms in the molecule
         :param alpha: learning rate
         :param epsilon: exploration rate
         :param gamma: discount factor
+        :param valid_ecfp_file_path: path to the file containing the valid ECFPs
+        :param init_weights: initial weights for the Q-learning strategy
         :param preselect_action_type: whether to preselect the action type
         before selecting the actual action
         """
@@ -271,9 +273,11 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
         self.number_of_contexts = self.valid_ecfps.shape[0]
 
         # Initializing the weights for each action type
-        self.w_addA = np.array([np.random.normal() for _ in range((self.number_of_contexts + 1) * number_of_accepted_atoms)])
-        self.w_rmA = np.array([np.random.normal() for _ in range(self.number_of_contexts + 1)])
-        self.w_chB = np.array([np.random.normal() for _ in range((self.number_of_contexts + 1) * 4)])
+        init_weights = self.initialize_weights(init_weights_file_path, number_of_accepted_atoms)
+
+        self.w_addA = init_weights[0]
+        self.w_rmA = init_weights[1]
+        self.w_chB = init_weights[2]
 
         # Feature vector of the current state needed for the update of the weights
         self.current_features = []
@@ -290,6 +294,32 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
 
         with open(file_path, 'r') as f:
             return np.array(json.load(f))
+
+    def initialize_weights(self, file_path, number_of_accepted_atoms):
+        """
+        Initializing the weights for each action type
+        :param file_path: path to the file containing the initial weights
+        :param number_of_accepted_atoms: number of accepted atoms in the molecule
+        """
+
+        try:
+            if file_path is None:
+                # Returning the weights for each action type
+                return [np.array([np.random.normal() for _ in range((self.number_of_contexts + 1) * number_of_accepted_atoms)]),
+                        np.array([np.random.normal() for _ in range(self.number_of_contexts + 1)]),
+                        np.array([np.random.normal() for _ in range((self.number_of_contexts + 1) * 4)])]
+            else:
+                # Reading the last line of the file to get the initial weights
+                with open(file_path, "r") as f:
+                    init_weights = json.load(f)
+
+                # Returning the weights for each action type
+                return [np.array(init_weights['w_addA']),
+                        np.array(init_weights['w_rmA']),
+                        np.array(init_weights['w_chB'])]
+
+        except FileNotFoundError:
+            print('The file containing the initial weights does not exist.')
 
     def get_valid_ecfp_vectors(self, ecfps):
         """

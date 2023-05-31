@@ -1,5 +1,6 @@
 import copy
 import csv
+import json
 import time
 from collections import deque
 from os import makedirs
@@ -456,39 +457,41 @@ class PopAlg:
 
             # ### Trained weights data ###
             if self.record_trained_weights:
+                w_addA = self.mutation_strategy.neighbour_gen_strategy.w_addA.flatten()
+                w_rmA = self.mutation_strategy.neighbour_gen_strategy.w_rmA.flatten()
+                w_chB = self.mutation_strategy.neighbour_gen_strategy.w_chB.flatten()
+
                 if self.curr_step_id == 0:
                     with open(join(self.output_folder_path, 'addA_weights.csv'), "w", newline='') as f:
-                        w_addA = self.mutation_strategy.neighbour_gen_strategy.w_addA.flatten()
                         writer = csv.writer(f)
                         writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_addA))])
                         writer.writerow([str(self.curr_step_id - 1)] + list(w_addA))
 
                     with open(join(self.output_folder_path, 'rmA_weights.csv'), "w", newline='') as f:
-                        w_rmA = self.mutation_strategy.neighbour_gen_strategy.w_rmA.flatten()
                         writer = csv.writer(f)
                         writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_rmA))])
                         writer.writerow([str(self.curr_step_id - 1)] + list(w_rmA))
 
                     with open(join(self.output_folder_path, 'chB_weights.csv'), "w", newline='') as f:
-                        w_chB = self.mutation_strategy.neighbour_gen_strategy.w_chB.flatten()
                         writer = csv.writer(f)
                         writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_chB))])
                         writer.writerow([str(self.curr_step_id - 1)] + list(w_chB))
                 else:
                     with open(join(self.output_folder_path, 'addA_weights.csv'), "a", newline='') as f:
-                        w_addA = self.mutation_strategy.neighbour_gen_strategy.w_addA.flatten()
                         writer = csv.writer(f)
                         writer.writerow([str(self.curr_step_id - 1)] + list(w_addA))
 
                     with open(join(self.output_folder_path, 'rmA_weights.csv'), "a", newline='') as f:
-                        w_rmA = self.mutation_strategy.neighbour_gen_strategy.w_rmA.flatten()
                         writer = csv.writer(f)
                         writer.writerow([str(self.curr_step_id - 1)] + list(w_rmA))
 
                     with open(join(self.output_folder_path, 'chB_weights.csv'), "a", newline='') as f:
-                        w_chB = self.mutation_strategy.neighbour_gen_strategy.w_chB.flatten()
                         writer = csv.writer(f)
                         writer.writerow([str(self.curr_step_id - 1)] + list(w_chB))
+
+                with open(join(self.output_folder_path, 'trained_weights.json'), "w", newline='') as f:
+                    json.dump({"w_addA": list(w_addA), "w_rmA": list(w_rmA), "w_chB": list(w_chB)}, f)
+
 
             # ### Errors data ###
             with open(join(self.output_folder_path, 'errors.csv'), "w", newline='') as f:

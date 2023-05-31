@@ -339,7 +339,9 @@ def _parse_neighbour_generation_parameters(explicit_search_parameters, evaluatio
             alpha=explicit_search_parameters["alpha"],
             epsilon=explicit_search_parameters["epsilon"],
             gamma=explicit_search_parameters["gamma"],
-            valid_ecfp_file_path=explicit_IO_parameters["valid_ecfp_file_path"])
+            valid_ecfp_file_path=explicit_IO_parameters["valid_ecfp_file_path"],
+            init_weights_file_path=explicit_IO_parameters["init_weights_file_path"]
+        )
 
     return neighbour_generation_strategy
 
@@ -464,6 +466,8 @@ def _extract_explicit_IO_parameters(parameters_dict):
             "silly_molecules_reference_db_path"] if "silly_molecules_reference_db_path" in input_IO_parameters else None,
         "valid_ecfp_file_path": input_IO_parameters[
             "valid_ecfp_file_path"] if "valid_ecfp_file_path" in input_IO_parameters else None,
+        "init_weights_file_path": input_IO_parameters[
+            "init_weights_file_path"] if "init_weights_file_path" in input_IO_parameters else None,
     }
 
     for parameter in input_IO_parameters:
