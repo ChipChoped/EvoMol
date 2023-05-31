@@ -315,7 +315,7 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
         """
 
         # Index where there is no valid ECFP-0 for the current context
-        index = 33 * context_id
+        index = self.number_of_contexts * context_id
 
         # Iterating over the binary vector to find the valid ECFP-0 for the current context
         # and computing the index for the feature vector
