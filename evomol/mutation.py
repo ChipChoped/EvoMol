@@ -322,8 +322,8 @@ class QLearningGraphOpsImprovingMutationStrategy(MutationStrategy, Observable):
 
             # Only evaluating the neighbour if it has not been encountered yet in the population and if it is valid
             # if the filters are enabled and if it is not in the external tabu list
-            if not failed_quality_filter and not failed_sillywalks_filter and \
-                    not failed_sascore_filter and not failed_custom_filter:
+            if not failed_tabu_pop and not failed_tabu_external and not failed_quality_filter and \
+                    not failed_sillywalks_filter and not failed_sascore_filter and not failed_custom_filter:
 
                 try:
                     tstart = time.time()
@@ -333,10 +333,6 @@ class QLearningGraphOpsImprovingMutationStrategy(MutationStrategy, Observable):
                         self.evaluation_strategy.evaluate_individual(mutated_ind, to_replace_idx=ind_to_replace_idx)
 
                     evaluation_time = time.time() - tstart
-
-                    # Updating Q-Learning weights
-                    for (mol_builder, action) in zip([qumol_builder] + new_qumol_builders[0:len(new_qumol_builders) - 2], executed_actions):
-                        self.notify_observers(mol_builder, action, mutated_total_score, inverted_reward=True, boolean_reward=True)
 
                 except Exception as e:
 
@@ -352,6 +348,10 @@ class QLearningGraphOpsImprovingMutationStrategy(MutationStrategy, Observable):
                                                              obj_computation_time=evaluation_time)
 
                     raise EvaluationError(str(e) + individual.to_aromatic_smiles() + " " + desc) from e
+
+                # Updating Q-Learning weights
+                for (mol_builder, action) in zip([qumol_builder] + new_qumol_builders[0:len(new_qumol_builders) - 2], executed_actions):
+                    self.notify_observers(mol_builder, action, mutated_total_score, inverted_reward=True, boolean_reward=True)
 
                 # Checking if the mutated individual is an improver
                 is_improver = self.is_improver(curr_total_score, mutated_total_score)
