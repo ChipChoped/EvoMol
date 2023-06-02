@@ -323,18 +323,14 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
 
     def get_valid_ecfp_vectors(self, ecfps):
         """
+        Iterating over the valid ECFP-0 of the database to check if they are in
+        the current molecule and recording the result in a binary vector
         :param ecfps: list of ECFP-0 of the current molecule
         :return: binary vector of valid ECFP-0
         """
 
-        atom_valid_ecfps = np.array([False])
-
-        # Iterating over the valid ECFP-0 of the database to check if they are in
-        # the current molecule and recording the result in a binary vector
-        for valid_ecfp in self.valid_ecfps:
-            atom_valid_ecfps = np.append(atom_valid_ecfps, valid_ecfp in ecfps)
-
-        return atom_valid_ecfps[1:]
+        # Can be optimized by using a dictionary for self.valid_ecfps
+        return [valid_ecfp in ecfps for valid_ecfp in self.valid_ecfps]
 
     def binary_vector_to_index(self, vector, context_id=0):
         """
