@@ -14,7 +14,7 @@ from .evaluation import EvaluationStrategy, GenericFunctionEvaluationStrategy, Q
 from .evaluation_dft import OPTEvaluationStrategy, SharedLastComputation
 from .evaluation_entropy import EntropyContribEvaluationStrategy
 from .molgraphops.default_actionspaces import generic_action_space
-from .molgraphops.exploration import RandomActionTypeSelectionStrategy
+from .molgraphops.exploration import RandomActionTypeSelectionStrategy, DeterministQLearningActionSelectionStrategy
 from .mutation import KRandomGraphOpsImprovingMutationStrategy
 from .popalg import PopAlg
 from .stopcriterion import MultipleStopCriterionsStrategy, FileStopCriterion, KStepsStopCriterionStrategy, \
@@ -332,7 +332,7 @@ def _parse_neighbour_generation_parameters(explicit_search_parameters, evaluatio
 
     if explicit_search_parameters["neighbour_generation_strategy"] == RandomActionTypeSelectionStrategy:
         neighbour_generation_strategy = RandomActionTypeSelectionStrategy()
-    else:
+    elif explicit_search_parameters["neighbour_generation_strategy"] == DeterministQLearningActionSelectionStrategy:
         neighbour_generation_strategy = explicit_search_parameters["neighbour_generation_strategy"](
             depth=explicit_search_parameters["mutation_max_depth"],
             number_of_accepted_atoms=len(action_spaces_parameters.accepted_atoms),
@@ -342,6 +342,9 @@ def _parse_neighbour_generation_parameters(explicit_search_parameters, evaluatio
             valid_ecfp_file_path=explicit_IO_parameters["valid_ecfp_file_path"],
             init_weights_file_path=explicit_IO_parameters["init_weights_file_path"]
         )
+    else:
+        raise RuntimeWarning("Unrecognized neighbour generation strategy : " + str(
+            explicit_search_parameters["neighbour_generation_strategy"]))
 
     return neighbour_generation_strategy
 

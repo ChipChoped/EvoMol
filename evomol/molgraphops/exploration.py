@@ -233,34 +233,23 @@ class AlwaysFirstActionSelectionStrategy(NeighbourGenerationStrategy):
         return action_types_list[0]
 
 
-class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
+class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, ABC):
     """
     Selection of the action type according to a Q-learning strategy.
     """
 
-    def __init__(self, depth, number_of_accepted_atoms, alpha, epsilon, gamma,
-                 valid_ecfp_file_path=None, init_weights_file_path=None, preselect_action_type=True):
+    def __init__(self, depth, number_of_accepted_atoms, valid_ecfp_file_path=None,
+                 init_weights_file_path=None, preselect_action_type=True):
         """
         :param depth: number of consecutive executed actions before evaluation
         :param number_of_accepted_atoms: number of accepted atoms in the molecule
-        :param alpha: learning rate
-        :param epsilon: exploration rate
-        :param gamma: discount factor
         :param valid_ecfp_file_path: path to the file containing the valid ECFPs
-        :param init_weights: initial weights for the Q-learning strategy
+        :param init_weights_file_path: initial weights for the Q-learning strategy
         :param preselect_action_type: whether to preselect the action type
         before selecting the actual action
         """
 
         super().__init__(preselect_action_type)
-
-        # Initializing the observer by subscribing to the mutation strategy
-        # Observer.__init__(self, mutation_strategy)
-
-        # Initializing the hyperparameters of the Q-learning strategy
-        self.epsilon = epsilon
-        self.gamma = gamma
-        self.alpha = alpha
 
         # Initializing the depth of the search
         self.depth = depth
@@ -295,6 +284,153 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
         with open(file_path, 'r') as f:
             return np.array(json.load(f))
 
+    def get_valid_ecfp_vectors(self, ecfps):
+        """
+        Iterating over the valid ECFP-0 of the database to check if they are in
+        the current molecule and recording the result in a binary vector
+        :param ecfps: list of ECFP-0 of the current molecule
+        :return: binary vector of valid ECFP-0
+        """
+
+        # Can be optimized by using a dictionary for self.valid_ecfps
+        return [valid_ecfp in ecfps for valid_ecfp in self.valid_ecfps]
+
+    def generate_neighbour(self, molgraph_builder, depth, evaluation_strategy, return_mol_graph=False):
+        """
+        :param molgraph_builder: evomol.molgraphops.molgraph.MolGraphBuilder instance previously set up to apply
+        perturbations on the desired molecular graph.
+        :param depth in number of perturbations of the output neighbour.
+        :param evaluation_strategy: evomol.evaluation.EvaluationStrategyComposite instance that is used to evaluate the
+        solutions in the EvoMol optimization procedure
+        :param return_mol_graph: whether to return the molecular graph (evomol.molgraphops.molgraph.MolGraph) or a
+        SMILES.
+        :return: list of (evomol.molgraphops.molgraph.MolGraph, string id of the perturbation, list of chosen actions) or
+        (list of SMILES, string id of the perturbation, list of chosen actions)
+        """
+
+        # Initialization of molecular graph ID
+        id = _compute_root_node_id()
+
+        # Initializing the list of molgraph_builders and chosen_actions to be updated
+        molgraph_builders = []
+        chosen_actions = []
+
+        # Initializing the depth counter and the current_features list
+        self.depth_counter = 0
+        self.current_features = []
+
+        # Iterating over the number of actions to be executed
+        for i in range(depth):
+            # Copying QuMolGraphBuilder
+            molgraph_builder = molgraph_builder.copy()
+
+            # Getting the ECFP of the current molecule
+            ecfps_trace = {}
+            AllChem.GetMorganFingerprint(MolFromSmiles(molgraph_builder.qu_mol_graph.to_smiles()), 0, bitInfo=ecfps_trace)
+
+            # Putting atom ids as keys and the corresponding ECFP and radius as values
+            ecfps = dict()
+
+            for k in ecfps_trace.keys():
+                for (atom_id, rad) in ecfps_trace[k]:
+                    if not atom_id in ecfps.keys():
+                        ecfps[atom_id] = list()
+
+                    ecfps[atom_id].append(k)
+
+            # Selecting the action to be executed
+            chosen_action = self.select_action_type([], evaluation_strategy, ecfps, molgraph_builder)
+
+            # Updating molecule ID
+            id = _compute_new_node_id(id, chosen_action)
+
+            # Applying action
+            molgraph_builder.execute_action_coords(chosen_action)
+
+            # Updating the list of molgraph_builders and chosen_actions
+            molgraph_builders.append(molgraph_builder.copy())
+            chosen_actions.append(chosen_action)
+
+        if return_mol_graph:
+            return molgraph_builder.qu_mol_graph, id, molgraph_builders, chosen_actions
+        else:
+            return molgraph_builder.qu_mol_graph.to_aromatic_smiles(), id, molgraph_builders, chosen_actions
+
+    @abstractmethod
+    def initialize_weights(self, init_weights_file_path, number_of_accepted_atoms):
+        """
+        Initializing the weights for each action type
+        :param file_path: path to the file containing the initial weights
+        :param number_of_accepted_atoms: number of accepted atoms in the molecule
+        return: list of initial weights
+        """
+
+        pass
+
+    @abstractmethod
+    def extract_features(self, molgraph_builder, ecfps, valid_action, action_space):
+        """
+        Extracting the features of the current state
+        :param molgraph_builder: molecule graph builder
+        :param ecfps: list of ECFPs of the current molecule
+        :param valid_action: binary vector of valid actions
+        :param action_space: action space of the current action
+        :return: vector of features
+        """
+
+        pass
+
+    @abstractmethod
+    def select_action_type(self, action_types_list, evaluation_strategy, ecfps=None, molgraph_builder=MolGraphBuilder([], [])):
+        """
+        Selecting the action type according to the Q-learning strategy
+        :param action_types_list: list of action types authorized
+        :param evaluation_strategy: evaluation strategy
+        :param ecfps: list of ECFPs of the current molecule
+        :param molgraph_builder: molecule graph builder
+        :return: valid action to execute
+        """
+
+        pass
+
+    @abstractmethod
+    def update(self, *args, **kwargs):
+        """
+        Updating the weights of the Q-learning strategy
+        :param args: arguments of the update method
+        :param kwargs: keyword arguments of the update method
+        """
+
+        pass
+
+
+class DeterministQLearningActionSelectionStrategy(QLearningActionSelectionStrategy):
+    """
+    Selection of the action type according to a determinist Q-learning strategy.
+    """
+
+    def __init__(self, depth, number_of_accepted_atoms, alpha, epsilon, gamma,
+                 valid_ecfp_file_path=None, init_weights_file_path=None, preselect_action_type=True):
+        """
+        :param depth: number of consecutive executed actions before evaluation
+        :param number_of_accepted_atoms: number of accepted atoms in the molecule
+        :param alpha: learning rate
+        :param epsilon: exploration rate
+        :param gamma: discount factor
+        :param valid_ecfp_file_path: path to the file containing the valid ECFPs
+        :param init_weights_file_path: initial weights for the Q-learning strategy
+        :param preselect_action_type: whether to preselect the action type
+        before selecting the actual action
+        """
+
+        super().__init__(depth, number_of_accepted_atoms, valid_ecfp_file_path,init_weights_file_path,
+                         preselect_action_type)
+
+        # Initializing the hyperparameters of the Q-learning strategy
+        self.epsilon = epsilon
+        self.gamma = gamma
+        self.alpha = alpha
+
     def initialize_weights(self, file_path, number_of_accepted_atoms):
         """
         Initializing the weights for each action type
@@ -320,17 +456,6 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
 
         except FileNotFoundError:
             print('The file containing the initial weights does not exist.')
-
-    def get_valid_ecfp_vectors(self, ecfps):
-        """
-        Iterating over the valid ECFP-0 of the database to check if they are in
-        the current molecule and recording the result in a binary vector
-        :param ecfps: list of ECFP-0 of the current molecule
-        :return: binary vector of valid ECFP-0
-        """
-
-        # Can be optimized by using a dictionary for self.valid_ecfps
-        return [valid_ecfp in ecfps for valid_ecfp in self.valid_ecfps]
 
     def binary_vector_to_index(self, vector, context_id=0):
         """
@@ -640,64 +765,3 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer):
             self.depth_counter -= 1
         else:
             raise ValueError('Invalid action')
-
-    def generate_neighbour(self, molgraph_builder, depth, evaluation_strategy, return_mol_graph=False):
-        """
-        :param molgraph_builder: evomol.molgraphops.molgraph.MolGraphBuilder instance previously set up to apply
-        perturbations on the desired molecular graph.
-        :param depth in number of perturbations of the output neighbour.
-        :param evaluation_strategy: evomol.evaluation.EvaluationStrategyComposite instance that is used to evaluate the
-        solutions in the EvoMol optimization procedure
-        :param return_mol_graph: whether to return the molecular graph (evomol.molgraphops.molgraph.MolGraph) or a
-        SMILES.
-        :return: list of (evomol.molgraphops.molgraph.MolGraph, string id of the perturbation, list of chosen actions) or
-        (list of SMILES, string id of the perturbation, list of chosen actions)
-        """
-
-        # Initialization of molecular graph ID
-        id = _compute_root_node_id()
-
-        # Initializing the list of molgraph_builders and chosen_actions to be updated
-        molgraph_builders = []
-        chosen_actions = []
-
-        # Initializing the depth counter and the current_features list
-        self.depth_counter = 0
-        self.current_features = []
-
-        # Iterating over the number of actions to be executed
-        for i in range(depth):
-            # Copying QuMolGraphBuilder
-            molgraph_builder = molgraph_builder.copy()
-
-            # Getting the ECFP of the current molecule
-            ecfps_trace = {}
-            AllChem.GetMorganFingerprint(MolFromSmiles(molgraph_builder.qu_mol_graph.to_smiles()), 0, bitInfo=ecfps_trace)
-
-            # Putting atom ids as keys and the corresponding ECFP and radius as values
-            ecfps = dict()
-
-            for k in ecfps_trace.keys():
-                for (atom_id, rad) in ecfps_trace[k]:
-                    if not atom_id in ecfps.keys():
-                        ecfps[atom_id] = list()
-
-                    ecfps[atom_id].append(k)
-
-            # Selecting the action to be executed
-            chosen_action = self.select_action_type([], evaluation_strategy, ecfps, molgraph_builder)
-
-            # Updating molecule ID
-            id = _compute_new_node_id(id, chosen_action)
-
-            # Applying action
-            molgraph_builder.execute_action_coords(chosen_action)
-
-            # Updating the list of molgraph_builders and chosen_actions
-            molgraph_builders.append(molgraph_builder.copy())
-            chosen_actions.append(chosen_action)
-
-        if return_mol_graph:
-            return molgraph_builder.qu_mol_graph, id, molgraph_builders, chosen_actions
-        else:
-            return molgraph_builder.qu_mol_graph.to_aromatic_smiles(), id, molgraph_builders, chosen_actions

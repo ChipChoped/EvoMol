@@ -6,7 +6,7 @@ import numpy as np
 from .evaluation import EvaluationError, RDFiltersEvaluationStrategy, SillyWalksEvaluationStrategy, \
     SAScoreEvaluationStrategy
 from .molgraphops.molgraph import MolGraphBuilder
-from .molgraphops.exploration import random_neighbour, RandomActionTypeSelectionStrategy, QLearningActionSelectionStrategy
+from .molgraphops.exploration import random_neighbour, RandomActionTypeSelectionStrategy, DeterministQLearningActionSelectionStrategy
 
 from rdkit.Chem import MolFromSmiles
 from evomol.molgraphops.molgraph import MolGraph
@@ -287,19 +287,19 @@ class QLearningGraphOpsImprovingMutationStrategy(MutationStrategy, Observable):
         # Trying max_n_try times to find an improver
         for i in range(self.max_n_try):
 
-            try:
-                # Creating QuMolGraphBuilder
-                qumol_builder = MolGraphBuilder(self.actionspace_parameters, self.action_spaces, MolGraph(MolFromSmiles(individual.to_aromatic_smiles())))
+            # try:
+            # Creating QuMolGraphBuilder
+            qumol_builder = MolGraphBuilder(self.actionspace_parameters, self.action_spaces, MolGraph(MolFromSmiles(individual.to_aromatic_smiles())))
 
-                # Performing mutation
-                mutated_ind, desc, new_qumol_builders, executed_actions = self.neighbour_gen_strategy.generate_neighbour(qumol_builder.copy(),
+            # Performing mutation
+            mutated_ind, desc, new_qumol_builders, executed_actions = self.neighbour_gen_strategy.generate_neighbour(qumol_builder.copy(),
                                                                                        self.k,
                                                                                        evaluation_strategy=self.evaluation_strategy,
                                                                                        return_mol_graph=True)
 
-            except Exception as e:
-                print(e)
-                raise MutationError(individual.to_aromatic_smiles()) from e
+            # except Exception as e:
+            #     print(e)
+            #     raise MutationError(individual.to_aromatic_smiles()) from e
 
             # Computing boolean filter values
             failed_tabu_pop = mutated_ind.to_aromatic_smiles() in pop_tabu_list
