@@ -393,9 +393,8 @@ class AddAtomActionSpace(ActionSpace):
         i = action_id // number_accepted_atoms
         j = action_id % number_accepted_atoms
 
-        # Old atom type initialization
-        # Computing atom type of the atom on which the new atom will be bonded (if it is defined)
-        support_atom = i if i >= 1 else i - 1
+        # Computing atom position on which the new atom will be bonded (if it is defined)
+        support_atom = i - 1 if i >= 1 else i
 
         return [support_atom, j]
 
