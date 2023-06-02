@@ -388,19 +388,14 @@ class AddAtomActionSpace(ActionSpace):
 
     def get_context(self, action_id, parameters, *args, **kwargs):
         # Converting action id to coordinates in the action space
-        i = action_id // len(parameters.accepted_atoms)
-        j = action_id % len(parameters.accepted_atoms)
+        number_accepted_atoms = len(parameters.accepted_atoms)
 
-        # # Computing atom type that will be added on current action
-        # new_atom_type = parameters.accepted_atoms[j]
+        i = action_id // number_accepted_atoms
+        j = action_id % number_accepted_atoms
 
         # Old atom type initialization
-        support_atom = i
-
         # Computing atom type of the atom on which the new atom will be bonded (if it is defined)
-        if i >= 1:
-             support_atom = i - 1
-        #     old_at_type = qu_mol_graph.get_atom_type(old_at_id)
+        support_atom = i if i >= 1 else i - 1
 
         return [support_atom, j]
 
