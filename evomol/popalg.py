@@ -9,6 +9,7 @@ from os.path import dirname, join
 import numpy as np
 from rdkit.Chem.rdmolfiles import MolFromSmiles
 
+from . import StochasticQLearningActionSelectionStrategy, DeterministQLearningActionSelectionStrategy
 from .evaluation import EvaluationError, scores_to_scores_dict
 from .molgraphops.molgraph import MolGraph
 from .mutation import NoImproverError, MutationError
@@ -457,41 +458,133 @@ class PopAlg:
 
             # ### Trained weights data ###
             if self.record_trained_weights:
-                w_addA = self.mutation_strategy.neighbour_gen_strategy.w_addA.flatten()
-                w_rmA = self.mutation_strategy.neighbour_gen_strategy.w_rmA.flatten()
-                w_chB = self.mutation_strategy.neighbour_gen_strategy.w_chB.flatten()
+                if isinstance(self.mutation_strategy.neighbour_gen_strategy, DeterministQLearningActionSelectionStrategy):
+                    w_addA = self.mutation_strategy.neighbour_gen_strategy.w_addA.flatten()
+                    w_rmA = self.mutation_strategy.neighbour_gen_strategy.w_rmA.flatten()
+                    w_chB = self.mutation_strategy.neighbour_gen_strategy.w_chB.flatten()
 
-                if self.curr_step_id == 0:
-                    with open(join(self.output_folder_path, 'addA_weights.csv'), "w", newline='') as f:
-                        writer = csv.writer(f)
-                        writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_addA))])
-                        writer.writerow([str(self.curr_step_id - 1)] + list(w_addA))
+                    if self.curr_step_id == 0:
+                        with open(join(self.output_folder_path, 'addA_weights.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_addA))])
+                            writer.writerow([str(self.curr_step_id - 1)] + list(w_addA))
 
-                    with open(join(self.output_folder_path, 'rmA_weights.csv'), "w", newline='') as f:
-                        writer = csv.writer(f)
-                        writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_rmA))])
-                        writer.writerow([str(self.curr_step_id - 1)] + list(w_rmA))
+                        with open(join(self.output_folder_path, 'rmA_weights.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_rmA))])
+                            writer.writerow([str(self.curr_step_id - 1)] + list(w_rmA))
 
-                    with open(join(self.output_folder_path, 'chB_weights.csv'), "w", newline='') as f:
-                        writer = csv.writer(f)
-                        writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_chB))])
-                        writer.writerow([str(self.curr_step_id - 1)] + list(w_chB))
-                else:
-                    with open(join(self.output_folder_path, 'addA_weights.csv'), "a", newline='') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([str(self.curr_step_id - 1)] + list(w_addA))
+                        with open(join(self.output_folder_path, 'chB_weights.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_chB))])
+                            writer.writerow([str(self.curr_step_id - 1)] + list(w_chB))
+                    else:
+                        with open(join(self.output_folder_path, 'addA_weights.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + list(w_addA))
 
-                    with open(join(self.output_folder_path, 'rmA_weights.csv'), "a", newline='') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([str(self.curr_step_id - 1)] + list(w_rmA))
+                        with open(join(self.output_folder_path, 'rmA_weights.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + list(w_rmA))
 
-                    with open(join(self.output_folder_path, 'chB_weights.csv'), "a", newline='') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([str(self.curr_step_id - 1)] + list(w_chB))
+                        with open(join(self.output_folder_path, 'chB_weights.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + list(w_chB))
 
-                with open(join(self.output_folder_path, 'trained_weights.json'), "w", newline='') as f:
-                    json.dump({"w_addA": list(w_addA), "w_rmA": list(w_rmA), "w_chB": list(w_chB)}, f)
+                    with open(join(self.output_folder_path, 'trained_weights.json'), "w", newline='') as f:
+                        json.dump({"w_addA": list(w_addA), "w_rmA": list(w_rmA), "w_chB": list(w_chB)}, f)
 
+                elif isinstance(self.mutation_strategy.neighbour_gen_strategy, StochasticQLearningActionSelectionStrategy):
+                    w_addA = self.mutation_strategy.neighbour_gen_strategy.w_addA.flatten()
+                    w_rmA = self.mutation_strategy.neighbour_gen_strategy.w_rmA.flatten()
+                    w_chB = self.mutation_strategy.neighbour_gen_strategy.w_chB.flatten()
+
+                    if self.curr_step_id == 0:
+                        with open(join(self.output_folder_path, 'addA_success.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_addA))])
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_addA[i].success for i in range(len(w_addA))])
+
+                        with open(join(self.output_folder_path, 'rmA_success.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_rmA))])
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_rmA[i].success for i in range(len(w_rmA))])
+
+                        with open(join(self.output_folder_path, 'chB_success.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_chB))])
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_chB[i].success for i in range(len(w_chB))])
+
+                        with open(join(self.output_folder_path, 'addA_usage.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_addA))])
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_addA[i].usage for i in range(len(w_addA))])
+
+                        with open(join(self.output_folder_path, 'rmA_usage.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_rmA))])
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_rmA[i].usage for i in range(len(w_rmA))])
+
+                        with open(join(self.output_folder_path, 'chB_usage.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_chB))])
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_chB[i].usage for i in range(len(w_chB))])
+
+                        with open(join(self.output_folder_path, 'addA_success_rates.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_addA))])
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_addA[i].get_success_rate() for i in range(len(w_addA))])
+
+                        with open(join(self.output_folder_path, 'rmA_success_rates.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_rmA))])
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_rmA[i].get_success_rate() for i in range(len(w_rmA))])
+
+                        with open(join(self.output_folder_path, 'chB_success_rates.csv'), "w", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(["step"] + ["w_" + str(i) for i in range(len(w_chB))])
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_chB[i].get_success_rate() for i in range(len(w_chB))])
+                    else:
+                        with open(join(self.output_folder_path, 'addA_success.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_addA[i].success for i in range(len(w_addA))])
+
+                        with open(join(self.output_folder_path, 'rmA_success.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_rmA[i].success for i in range(len(w_rmA))])
+
+                        with open(join(self.output_folder_path, 'chB_success.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_chB[i].success for i in range(len(w_chB))])
+
+                        with open(join(self.output_folder_path, 'addA_usage.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_addA[i].usage for i in range(len(w_addA))])
+
+                        with open(join(self.output_folder_path, 'rmA_usage.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_rmA[i].usage for i in range(len(w_rmA))])
+
+                        with open(join(self.output_folder_path, 'chB_usage.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_chB[i].usage for i in range(len(w_chB))])
+
+                        with open(join(self.output_folder_path, 'addA_success_rates.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_addA[i].get_success_rate() for i in range(len(w_addA))])
+
+                        with open(join(self.output_folder_path, 'rmA_success_rates.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_rmA[i].get_success_rate() for i in range(len(w_rmA))])
+
+                        with open(join(self.output_folder_path, 'chB_success_rates.csv'), "a", newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([str(self.curr_step_id - 1)] + [w_chB[i].get_success_rate() for i in range(len(w_chB))])
+
+                    with open(join(self.output_folder_path, 'trained_weights.json'), "w", newline='') as f:
+                        json.dump({"w_addA": [[w_addA[i].success, w_addA[i].usage] for i in range(len(w_addA))],
+                                   "w_rmA": [[w_rmA[i].success, w_rmA[i].usage] for i in range(len(w_rmA))],
+                                   "w_chB": [[w_chB[i].success, w_chB[i].usage] for i in range(len(w_chB))]}, f)
 
             # ### Errors data ###
             with open(join(self.output_folder_path, 'errors.csv'), "w", newline='') as f:

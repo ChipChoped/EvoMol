@@ -295,6 +295,82 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
         # Can be optimized by using a dictionary for self.valid_ecfps
         return [valid_ecfp in ecfps for valid_ecfp in self.valid_ecfps]
 
+    def binary_vector_to_index(self, vector, context_id=0):
+        """
+        Only adapted for ECFP-0 (only one valid ECFP-0 per context)
+        :param vector: binary vector of valid ECFP-0
+        :param context_id: ID of the context
+        :return: index of the valid ECFP-0 in the binary vector
+        """
+
+        # Index where there is no valid ECFP-0 for the current context
+        index = self.number_of_contexts * context_id
+
+        # Iterating over the binary vector to find the valid ECFP-0 for the current context
+        # and computing the index for the feature vector
+        for i in range(len(vector)):
+            if vector[i]:
+                # Found a valid ECFP-0 for the current context
+                index += i + 1
+
+        return index
+
+    def extract_features(self, molgraph_builder, ecfps, valid_action, action_space):
+        """
+        :param molgraph_builder: molecule graph builder
+        :param ecfps: list of ECFP-0 of the molecule
+        :param valid_action: valid action to apply
+        :param action_space: action space
+        :return: feature vector of the current state for a given action
+        """
+
+        qry_ecfp = set()
+        context = action_space.get_context(valid_action[1], molgraph_builder.parameters, qu_mol_graph=molgraph_builder.qu_mol_graph)
+
+        # Getting the ECFP-0 where the action will be applied and translating it into
+        # a float vector of valid ECFP-0
+        if valid_action[0] == 'AddA':
+            # Getting the ECFPs of the atom where the action will be applied
+            for i in range(len(ecfps[context[0]])):
+                qry_ecfp.add(ecfps[context[0]][i])
+
+            # Getting the valid ECFPs for the current context
+            valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
+
+            # Computing the feature vector
+            features = np.zeros((self.number_of_contexts + 1) * len(molgraph_builder.parameters.accepted_atoms))
+            features[self.binary_vector_to_index(valid_ecfps, context[1])] = 1.
+        elif valid_action[0] == 'RmA':
+            for i in range(len(ecfps[context[0]])):
+                qry_ecfp.add(ecfps[context[0]][i])
+
+            valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
+
+            features = np.zeros(self.number_of_contexts + 1)
+            features[self.binary_vector_to_index(valid_ecfps)] = 1.
+        elif valid_action[0] == 'ChB':
+            # Atom on the left of the bond
+            for i in range(len(ecfps[context[0]])):
+                qry_ecfp.add(ecfps[context[0]][i])
+            valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
+
+            features = np.zeros((self.number_of_contexts + 1) * 4)
+            features[self.binary_vector_to_index(valid_ecfps, context[3])] = 1.
+
+            # Atom on the right of the bond
+            qry_ecfp_ = set()
+
+            for i in range(len(ecfps[context[1]])):
+                qry_ecfp_.add(ecfps[context[1]][i])
+
+            valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp_)
+
+            features[self.binary_vector_to_index(valid_ecfps, context[3])] = 1.
+        else:
+            raise ValueError('Invalid action')
+
+        return features
+
     def generate_neighbour(self, molgraph_builder, depth, evaluation_strategy, return_mol_graph=False):
         """
         :param molgraph_builder: evomol.molgraphops.molgraph.MolGraphBuilder instance previously set up to apply
@@ -363,19 +439,6 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
         :param file_path: path to the file containing the initial weights
         :param number_of_accepted_atoms: number of accepted atoms in the molecule
         return: list of initial weights
-        """
-
-        pass
-
-    @abstractmethod
-    def extract_features(self, molgraph_builder, ecfps, valid_action, action_space):
-        """
-        Extracting the features of the current state
-        :param molgraph_builder: molecule graph builder
-        :param ecfps: list of ECFPs of the current molecule
-        :param valid_action: binary vector of valid actions
-        :param action_space: action space of the current action
-        :return: vector of features
         """
 
         pass
@@ -456,82 +519,6 @@ class DeterministQLearningActionSelectionStrategy(QLearningActionSelectionStrate
 
         except FileNotFoundError:
             print('The file containing the initial weights does not exist.')
-
-    def binary_vector_to_index(self, vector, context_id=0):
-        """
-        Only adapted for ECFP-0 (only one valid ECFP-0 per context)
-        :param vector: binary vector of valid ECFP-0
-        :param context_id: ID of the context
-        :return: index of the valid ECFP-0 in the binary vector
-        """
-
-        # Index where there is no valid ECFP-0 for the current context
-        index = self.number_of_contexts * context_id
-
-        # Iterating over the binary vector to find the valid ECFP-0 for the current context
-        # and computing the index for the feature vector
-        for i in range(len(vector)):
-            if vector[i]:
-                # Found a valid ECFP-0 for the current context
-                index += i + 1
-
-        return index
-
-    def extract_features(self, molgraph_builder, ecfps, valid_action, action_space):
-        """
-        :param molgraph_builder: molecule graph builder
-        :param ecfps: list of ECFP-0 of the molecule
-        :param valid_action: valid action to apply
-        :param action_space: action space
-        :return: feature vector of the current state for a given action
-        """
-
-        qry_ecfp = set()
-        context = action_space.get_context(valid_action[1], molgraph_builder.parameters, qu_mol_graph=molgraph_builder.qu_mol_graph)
-
-        # Getting the ECFP-0 where the action will be applied and translating it into
-        # a float vector of valid ECFP-0
-        if valid_action[0] == 'AddA':
-            # Getting the ECFPs of the atom where the action will be applied
-            for i in range(len(ecfps[context[0]])):
-                qry_ecfp.add(ecfps[context[0]][i])
-
-            # Getting the valid ECFPs for the current context
-            valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
-
-            # Computing the feature vector
-            features = np.zeros((self.number_of_contexts + 1) * len(molgraph_builder.parameters.accepted_atoms))
-            features[self.binary_vector_to_index(valid_ecfps, context[1])] = 1.
-        elif valid_action[0] == 'RmA':
-            for i in range(len(ecfps[context[0]])):
-                qry_ecfp.add(ecfps[context[0]][i])
-
-            valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
-
-            features = np.zeros(self.number_of_contexts + 1)
-            features[self.binary_vector_to_index(valid_ecfps)] = 1.
-        elif valid_action[0] == 'ChB':
-            # Atom on the left of the bond
-            for i in range(len(ecfps[context[0]])):
-                qry_ecfp.add(ecfps[context[0]][i])
-            valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
-
-            features = np.zeros((self.number_of_contexts + 1) * 4)
-            features[self.binary_vector_to_index(valid_ecfps, context[3])] = 1.
-
-            # Atom on the right of the bond
-            qry_ecfp_ = set()
-
-            for i in range(len(ecfps[context[1]])):
-                qry_ecfp_.add(ecfps[context[1]][i])
-
-            valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp_)
-
-            features[self.binary_vector_to_index(valid_ecfps, context[3])] = 1.
-        else:
-            raise ValueError('Invalid action')
-
-        return features
 
     def select_action_type(self, action_types_list, evaluation_strategy, ecfps=None, molgraph_builder=MolGraphBuilder([], [])):
         """
@@ -765,3 +752,188 @@ class DeterministQLearningActionSelectionStrategy(QLearningActionSelectionStrate
             self.depth_counter -= 1
         else:
             raise ValueError('Invalid action')
+
+
+class SuccessRate:
+    """
+    Class for storing the context success rate
+    """
+
+    def __init__(self):
+        self.success = 0
+        self.usage = 0
+
+    def get_success_rate(self, epsilon=None):
+        return self.success / self.usage if self.usage > 0 else epsilon if epsilon else 0.
+
+
+class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrategy):
+    """
+    Stochastic Q-Learning action selection strategy based on the success rate of the contexts
+    """
+
+    def __init__(self, depth, number_of_accepted_atoms, epsilon,
+                 valid_ecfp_file_path=None, init_weights_file_path=None, preselect_action_type=True):
+        """
+        :param depth: number of consecutive executed actions before evaluation
+        :param number_of_accepted_atoms: number of accepted atoms in the molecule
+        :param epsilon: initial context probability
+        :param valid_ecfp_file_path: path to the file containing the valid ECFPs
+        :param init_weights_file_path: initial weights for the Q-learning strategy
+        :param preselect_action_type: whether to preselect the action type
+        before selecting the actual action
+        """
+
+        super().__init__(depth, number_of_accepted_atoms, valid_ecfp_file_path=valid_ecfp_file_path,
+                 init_weights_file_path=init_weights_file_path, preselect_action_type=preselect_action_type)
+
+        self.epsilon = epsilon
+
+    def initialize_weights(self, init_weights_file_path, number_of_accepted_atoms):
+        return [np.array([SuccessRate() for _ in range((self.number_of_contexts + 1) * number_of_accepted_atoms)]),
+                np.array([SuccessRate() for _ in range(self.number_of_contexts + 1)]),
+                np.array([SuccessRate() for _ in range((self.number_of_contexts + 1) * 4)])]
+
+    def select_action_type(self, action_types_list, evaluation_strategy, ecfps=None, molgraph_builder=MolGraphBuilder([], [])):
+        """
+        :param action_types_list: list of action types authorized
+        :param evaluation_strategy: evaluation strategy
+        :param ecfps: list of ECFP-0 of the current molecule
+        :param molgraph_builder: graph builder of the current molecule
+        :return: action selected
+        """
+
+        if ecfps is None:
+            ecfps = []
+
+        # Getting the action spaces of the current molecule
+        actions = molgraph_builder.get_action_spaces_keys()
+
+        # Initializing the feature vectors for each action type
+        features_addA = np.array([])
+        features_rmA = np.array([])
+        features_chB = np.array([])
+
+        # Initializing the probabilities of each action type
+        probabilities_addA = np.array([])
+        probabilities_rmA = np.array([])
+        probabilities_chB = np.array([])
+
+        # Computing the success rate of each context
+        w_addA_success_rate = np.array([self.w_addA[i].get_success_rate(self.epsilon) for i in range(len(self.w_addA))])
+        w_rmA_success_rate = np.array([self.w_rmA[i].get_success_rate(self.epsilon) for i in range(len(self.w_rmA))])
+        w_chB_success_rate = np.array([self.w_chB[i].get_success_rate(self.epsilon) for i in range(len(self.w_chB))])
+
+        # Initializing the valid actions for each action type
+        valid_action_index_list = []
+
+        for action in actions:
+            # Initializing the list of valid actions for the current action type
+            valid_action_coords_list = []
+
+            # Getting the valid actions for the current action type
+            action_mask = molgraph_builder.get_valid_mask_from_key(action)
+            action_space = molgraph_builder.action_spaces_d[action]
+            valid_actions = np.nonzero(action_mask)
+
+            # Getting the valid actions coordinates
+            for valid_act in valid_actions[0]:
+                valid_action_coords_list.append((action, int(valid_act)))
+
+            # Adding the valid actions coordinates to the list of valid actions
+            valid_action_index_list.append(valid_action_coords_list)
+
+            # Computing the feature vectors for each action type
+            if valid_action_coords_list:
+                for valid_action in valid_action_coords_list:
+                    valid_action_features = self.extract_features(molgraph_builder, ecfps, valid_action, action_space)
+
+                    if valid_action[0] == 'AddA':
+                        features_addA = np.append(features_addA, valid_action_features)
+
+                        action_contexts = np.argwhere(valid_action_features == 1.)[0]
+                        probabilities_addA = np.append(probabilities_addA, [np.sum(w_addA_success_rate[action_context]) for action_context in action_contexts][0])
+                    elif valid_action[0] == 'RmA':
+                        features_rmA = np.append(features_rmA, valid_action_features)
+
+                        action_contexts = np.argwhere(valid_action_features == 1.)[0]
+                        probabilities_rmA = np.append(probabilities_rmA, [np.sum(w_rmA_success_rate[action_context]) for action_context in action_contexts][0])
+                    elif valid_action[0] == 'ChB':
+                        features_chB = np.append(features_chB, valid_action_features)
+
+                        action_contexts = np.argwhere(valid_action_features == 1.)[0]
+                        probabilities_chB = np.append(probabilities_chB, [np.sum(w_chB_success_rate[action_context]) for action_context in action_contexts][0])
+                    else:
+                        raise ValueError('Invalid action')
+
+        # Computing the divider for the probability distribution by summing the valid actions success rates
+        probability_divider = np.sum(np.concatenate((probabilities_addA, probabilities_rmA, probabilities_chB)))
+
+        # Computing the probability distribution for each action type and choose one accordingly
+        chosen_action_index = np.random.choice(len(probabilities_addA) + len(probabilities_rmA) + len(probabilities_chB),
+                                                    p=[probabilities_addA[i] / probability_divider for i in range(len(probabilities_addA))] +
+                                                    [probabilities_rmA[i] / probability_divider for i in range(len(probabilities_rmA))] +
+                                                    [probabilities_chB[i] / probability_divider for i in range(len(probabilities_chB))])
+
+        # Getting the chosen action
+        if chosen_action_index < len(probabilities_addA):
+            chosen_action = valid_action_index_list[0][chosen_action_index]
+            features_addA = features_addA.reshape(-1, (self.number_of_contexts + 1) * len(molgraph_builder.parameters.accepted_atoms))
+            self.current_features.append(features_addA[chosen_action_index])
+        elif chosen_action_index < len(probabilities_addA) + len(probabilities_rmA):
+            chosen_action = valid_action_index_list[1][chosen_action_index - len(probabilities_addA)]
+            features_rmA = features_rmA.reshape(-1, self.number_of_contexts + 1)
+            self.current_features.append(features_rmA[chosen_action_index - len(probabilities_addA)])
+        else:
+            chosen_action = valid_action_index_list[2][chosen_action_index - len(probabilities_addA) - len(probabilities_rmA)]
+            features_chB = features_chB.reshape(-1, (self.number_of_contexts + 1) * 4)
+            self.current_features.append(features_chB[chosen_action_index - len(probabilities_addA) - len(probabilities_rmA)])
+
+        return chosen_action
+
+    def update(self, *args, **kwargs):
+        """
+        Updates the weights according to the action(s) chosen previously
+        :molgraph_builder: molecule graph builder object for the current context
+        :executed_action: action executed on the molecule
+        :reward: reward obtained from the evaluation of the executed action on the current molecule
+        :inverted_reward: boolean indicating whether the reward should be inverted or not
+        :boolean_reward: boolean indicating whether the reward should be boolean or not
+        """
+
+        # Checking the needed arguments
+        try:
+            action_type = args[2][0]
+            successful = args[3]
+        except IndexError:
+            raise ValueError('Invalid arguments')
+
+        if 'inverted_reward' in kwargs:
+           successful = not successful
+
+        for current_features in self.current_features:
+            contexts_indexes = np.argwhere(current_features == 1.)[0]
+
+            if successful:
+
+                # Updating the amount of success for the chosen context
+                if action_type == 'AddA':
+                    for context_index in contexts_indexes:
+                        self.w_addA[context_index].success += 1
+                elif action_type == 'RmA':
+                    for context_index in contexts_indexes:
+                        self.w_rmA[context_index].success += 1
+                else:
+                    for context_index in contexts_indexes:
+                        self.w_chB[context_index].success += 1
+
+            # Updating the amount of usage for the chosen context
+            if action_type == 'AddA':
+                for context_index in contexts_indexes:
+                    self.w_addA[context_index].usage += 1
+            elif action_type == 'RmA':
+                for context_index in contexts_indexes:
+                    self.w_rmA[context_index].usage += 1
+            else:
+                for context_index in contexts_indexes:
+                    self.w_chB[context_index].usage += 1
