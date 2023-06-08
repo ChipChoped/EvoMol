@@ -287,19 +287,19 @@ class QLearningGraphOpsImprovingMutationStrategy(MutationStrategy, Observable):
         # Trying max_n_try times to find an improver
         for i in range(self.max_n_try):
 
-            # try:
-            # Creating QuMolGraphBuilder
-            qumol_builder = MolGraphBuilder(self.actionspace_parameters, self.action_spaces, MolGraph(MolFromSmiles(individual.to_aromatic_smiles())))
+            try:
+                # Creating QuMolGraphBuilder
+                qumol_builder = MolGraphBuilder(self.actionspace_parameters, self.action_spaces, MolGraph(MolFromSmiles(individual.to_aromatic_smiles())))
 
-            # Performing mutation
-            mutated_ind, desc, new_qumol_builders, executed_actions = self.neighbour_gen_strategy.generate_neighbour(qumol_builder.copy(),
+                # Performing mutation
+                mutated_ind, desc, new_qumol_builders, executed_actions = self.neighbour_gen_strategy.generate_neighbour(qumol_builder.copy(),
                                                                                        self.k,
                                                                                        evaluation_strategy=self.evaluation_strategy,
                                                                                        return_mol_graph=True)
 
-            # except Exception as e:
-            #     print(e)
-            #     raise MutationError(individual.to_aromatic_smiles()) from e
+            except Exception as e:
+                print(e)
+                raise MutationError(individual.to_aromatic_smiles()) from e
 
             # Computing boolean filter values
             failed_tabu_pop = mutated_ind.to_aromatic_smiles() in pop_tabu_list
@@ -350,7 +350,7 @@ class QLearningGraphOpsImprovingMutationStrategy(MutationStrategy, Observable):
                     raise EvaluationError(str(e) + individual.to_aromatic_smiles() + " " + desc) from e
 
                 # Updating Q-Learning weights
-                for (mol_builder, action) in zip([qumol_builder] + new_qumol_builders[0:len(new_qumol_builders) - 2], executed_actions):
+                for (mol_builder, action) in zip([qumol_builder] + new_qumol_builders[0:-1], executed_actions):
                     self.notify_observers(mol_builder, action, mutated_total_score, inverted_reward=True, boolean_reward=True)
 
                 # Checking if the mutated individual is an improver
@@ -402,7 +402,7 @@ class QLearningGraphOpsImprovingMutationStrategy(MutationStrategy, Observable):
                                                          obj_computation_time=None)
 
                 # Updating Q Learning weights
-                for (mol_builder, action) in zip([qumol_builder] + new_qumol_builders[0:len(new_qumol_builders) - 2], executed_actions):
+                for (mol_builder, action) in zip([qumol_builder] + new_qumol_builders[0:-1], executed_actions):
                     self.notify_observers(mol_builder, action, 1., inverted_reward=True, boolean_reward=True)
 
         # Raising error if no improver was found
