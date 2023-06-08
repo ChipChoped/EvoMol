@@ -433,7 +433,7 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
             return molgraph_builder.qu_mol_graph.to_aromatic_smiles(), id, molgraph_builders, chosen_actions
 
     @abstractmethod
-    def initialize_weights(self, init_weights_file_path, number_of_accepted_atoms):
+    def initialize_weights(self, file_path, number_of_accepted_atoms):
         """
         Initializing the weights for each action type
         :param file_path: path to the file containing the initial weights
@@ -759,9 +759,9 @@ class SuccessRate:
     Class for storing the context success rate
     """
 
-    def __init__(self):
-        self.success = 0
-        self.usage = 0
+    def __init__(self, success_usage_tuple):
+        self.success = success_usage_tuple[0]
+        self.usage = success_usage_tuple[1]
 
     def get_success_rate(self, epsilon=None):
         return self.success / self.usage if self.usage > 0 else epsilon if epsilon else 0.
@@ -789,10 +789,35 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
 
         self.epsilon = epsilon
 
-    def initialize_weights(self, init_weights_file_path, number_of_accepted_atoms):
-        return [np.array([SuccessRate() for _ in range((self.number_of_contexts + 1) * number_of_accepted_atoms)]),
-                np.array([SuccessRate() for _ in range(self.number_of_contexts + 1)]),
-                np.array([SuccessRate() for _ in range((self.number_of_contexts + 1) * 4)])]
+    def initialize_weights(self, file_path, number_of_accepted_atoms):
+        """
+        Initializing the weights for each action type
+        :param file_path: path to the file containing the initial weights
+        :param number_of_accepted_atoms: number of accepted atoms in the molecule
+        return: list of initial weights
+        """
+
+        try:
+            if file_path is None:
+                # Returning the weights for each action type
+                return [
+                    np.array([SuccessRate([0, 0]) for _ in range((self.number_of_contexts + 1) * number_of_accepted_atoms)]),
+                    np.array([SuccessRate([0, 0]) for _ in range(self.number_of_contexts + 1)]),
+                    np.array([SuccessRate([0, 0]) for _ in range((self.number_of_contexts + 1) * 4)])]
+            else:
+                # Reading the last line of the file to get the initial weights
+                with open(file_path, "r") as f:
+                    init_weights = json.load(f)
+
+                # Returning the weights for each action type
+                return [np.array([SuccessRate(success_usage_tuple) for success_usage_tuple in init_weights['w_addA']]),
+                        np.array([SuccessRate(success_usage_tuple) for success_usage_tuple in init_weights['w_rmA']]),
+                        np.array([SuccessRate(success_usage_tuple) for success_usage_tuple in init_weights['w_chB']])]
+
+        except FileNotFoundError:
+            print('The file containing the initial weights does not exist.')
+
+
 
     def select_action_type(self, action_types_list, evaluation_strategy, ecfps=None, molgraph_builder=MolGraphBuilder([], [])):
         """
@@ -870,7 +895,10 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
         probability_divider = np.sum(np.concatenate((probabilities_addA, probabilities_rmA, probabilities_chB)))
 
         # Computing the probability distribution for each action type and choose one accordingly
-        chosen_action_index = np.random.choice(len(probabilities_addA) + len(probabilities_rmA) + len(probabilities_chB),
+        if probability_divider == 0.0:
+            chosen_action_index = np.random.choice(len(probabilities_addA) + len(probabilities_rmA) + len(probabilities_chB))
+        else:
+            chosen_action_index = np.random.choice(len(probabilities_addA) + len(probabilities_rmA) + len(probabilities_chB),
                                                     p=[probabilities_addA[i] / probability_divider for i in range(len(probabilities_addA))] +
                                                     [probabilities_rmA[i] / probability_divider for i in range(len(probabilities_rmA))] +
                                                     [probabilities_chB[i] / probability_divider for i in range(len(probabilities_chB))])
@@ -888,6 +916,9 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
             chosen_action = valid_action_index_list[2][chosen_action_index - len(probabilities_addA) - len(probabilities_rmA)]
             features_chB = features_chB.reshape(-1, (self.number_of_contexts + 1) * 4)
             self.current_features.append(features_chB[chosen_action_index - len(probabilities_addA) - len(probabilities_rmA)])
+
+        # Incrementing the depth counter
+        self.depth_counter += 1
 
         return chosen_action
 
@@ -911,29 +942,32 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
         if 'inverted_reward' in kwargs:
            successful = not successful
 
-        for current_features in self.current_features:
-            contexts_indexes = np.argwhere(current_features == 1.)[0]
+        contexts_indexes = np.argwhere(self.current_features[self.depth - self.depth_counter] == 1.)[0]
 
-            if successful:
-
-                # Updating the amount of success for the chosen context
-                if action_type == 'AddA':
-                    for context_index in contexts_indexes:
-                        self.w_addA[context_index].success += 1
-                elif action_type == 'RmA':
-                    for context_index in contexts_indexes:
-                        self.w_rmA[context_index].success += 1
-                else:
-                    for context_index in contexts_indexes:
-                        self.w_chB[context_index].success += 1
-
-            # Updating the amount of usage for the chosen context
+        if successful:
+            # Updating the amount of success for the chosen context
             if action_type == 'AddA':
                 for context_index in contexts_indexes:
-                    self.w_addA[context_index].usage += 1
+                    self.w_addA[context_index].success += 1
             elif action_type == 'RmA':
                 for context_index in contexts_indexes:
-                    self.w_rmA[context_index].usage += 1
+                    self.w_rmA[context_index].success += 1
             else:
                 for context_index in contexts_indexes:
-                    self.w_chB[context_index].usage += 1
+                    self.w_chB[context_index].success += 1
+
+        # Updating the amount of usage for the chosen context
+        if action_type == 'AddA':
+            for context_index in contexts_indexes:
+                self.w_addA[context_index].usage += 1
+        elif action_type == 'RmA':
+            for context_index in contexts_indexes:
+                self.w_rmA[context_index].usage += 1
+        else:
+            for context_index in contexts_indexes:
+                self.w_chB[context_index].usage += 1
+
+        # Decrementing the depth counter
+        self.depth_counter -= 1
+
+        oui = 0
