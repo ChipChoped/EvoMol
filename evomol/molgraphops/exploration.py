@@ -238,8 +238,8 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
     Selection of the action type according to a Q-learning strategy.
     """
 
-    def __init__(self, depth, number_of_accepted_atoms, valid_ecfp_file_path=None,
-                 init_weights_file_path=None, preselect_action_type=True):
+    def __init__(self, depth, number_of_accepted_atoms, ecfp,
+                 valid_ecfp_file_path=None, init_weights_file_path=None, preselect_action_type=True):
         """
         :param depth: number of consecutive executed actions before evaluation
         :param number_of_accepted_atoms: number of accepted atoms in the molecule
@@ -255,7 +255,10 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
         self.depth = depth
         self.depth_counter = 0
 
-        # Initializing the array of valid ECFP-0
+        # Initializing which ECFP to search for
+        self.ecfp = ecfp
+
+        # Initializing the array of valid ECFP
         self.valid_ecfps = self.extract_valid_ecfps_from_file(valid_ecfp_file_path)
 
         # Number of valid contexts base on the number of the valid molecules ECFP-0
@@ -273,9 +276,9 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
 
     def extract_valid_ecfps_from_file(self, file_path):
         """
-        Extracting the valid ECFP-0 from the specified json file
+        Extracting the valid ECFP from the specified json file
         :param file_path: path to the file containing the valid ECFPs
-        :return: list of valid ECFP-0
+        :return: list of valid ECFP
         """
 
         if file_path is None:
@@ -286,39 +289,40 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
 
     def get_valid_ecfp_vectors(self, ecfps):
         """
-        Iterating over the valid ECFP-0 of the database to check if they are in
+        Iterating over the valid ECFP of the database to check if they are in
         the current molecule and recording the result in a binary vector
-        :param ecfps: list of ECFP-0 of the current molecule
-        :return: binary vector of valid ECFP-0
+        :param ecfps: list of ECFP of the current molecule
+        :return: binary vector of valid ECFP
         """
 
         # Can be optimized by using a dictionary for self.valid_ecfps
         return [valid_ecfp in ecfps for valid_ecfp in self.valid_ecfps]
 
-    def binary_vector_to_index(self, vector, context_id=0):
+    def binary_vector_to_indexes(self, vector, context_id=0):
         """
-        Only adapted for ECFP-0 (only one valid ECFP-0 per context)
-        :param vector: binary vector of valid ECFP-0
+        Find indexes of the valid ECFP in the binary vector
+        :param vector: binary vector of valid ECFP
         :param context_id: ID of the context
-        :return: index of the valid ECFP-0 in the binary vector
+        :return: index of the valid ECFP in the binary vector
         """
 
-        # Index where there is no valid ECFP-0 for the current context
-        index = self.number_of_contexts * context_id
+        # Index where there is no valid ECFP for the current context
+        init_index = self.number_of_contexts * context_id
+        indexes = []
 
-        # Iterating over the binary vector to find the valid ECFP-0 for the current context
+        # Iterating over the binary vector to find the valid ECFP for the current context
         # and computing the index for the feature vector
         for i in range(len(vector)):
             if vector[i]:
-                # Found a valid ECFP-0 for the current context
-                index += i + 1
+                # Found a valid ECFP for the current context
+                indexes.append(init_index + i + 1)
 
-        return index
+        return indexes
 
     def extract_features(self, molgraph_builder, ecfps, valid_action, action_space):
         """
         :param molgraph_builder: molecule graph builder
-        :param ecfps: list of ECFP-0 of the molecule
+        :param ecfps: list of ECFP of the molecule
         :param valid_action: valid action to apply
         :param action_space: action space
         :return: feature vector of the current state for a given action
@@ -327,19 +331,22 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
         qry_ecfp = set()
         context = action_space.get_context(valid_action[1], molgraph_builder.parameters, qu_mol_graph=molgraph_builder.qu_mol_graph)
 
-        # Getting the ECFP-0 where the action will be applied and translating it into
-        # a float vector of valid ECFP-0
+        # Getting the ECFP where the action will be applied and translating it into
+        # a float vector of valid ECFP
         if valid_action[0] == 'AddA':
-            # Getting the ECFPs of the atom where the action will be applied
+            # Getting the ECFP of the atom where the action will be applied
             for i in range(len(ecfps[context[0]])):
                 qry_ecfp.add(ecfps[context[0]][i])
 
-            # Getting the valid ECFPs for the current context
+            # Getting the valid ECFP for the current context
             valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
 
             # Computing the feature vector
             features = np.zeros((self.number_of_contexts + 1) * len(molgraph_builder.parameters.accepted_atoms))
-            features[self.binary_vector_to_index(valid_ecfps, context[1])] = 1.
+            indexes = self.binary_vector_to_indexes(valid_ecfps, context[1])
+
+            for i in range(len(indexes)):
+                features[indexes[i]] = 1.
         elif valid_action[0] == 'RmA':
             for i in range(len(ecfps[context[0]])):
                 qry_ecfp.add(ecfps[context[0]][i])
@@ -347,7 +354,10 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
             valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
 
             features = np.zeros(self.number_of_contexts + 1)
-            features[self.binary_vector_to_index(valid_ecfps)] = 1.
+            indexes = self.binary_vector_to_indexes(valid_ecfps)
+
+            for i in range(len(indexes)):
+                features[indexes[i]] = 1.
         elif valid_action[0] == 'ChB':
             # Atom on the left of the bond
             for i in range(len(ecfps[context[0]])):
@@ -355,7 +365,7 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
             valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp)
 
             features = np.zeros((self.number_of_contexts + 1) * 4)
-            features[self.binary_vector_to_index(valid_ecfps, context[3])] = 1.
+            indexes = self.binary_vector_to_indexes(valid_ecfps, context[3])
 
             # Atom on the right of the bond
             qry_ecfp_ = set()
@@ -364,8 +374,12 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
                 qry_ecfp_.add(ecfps[context[1]][i])
 
             valid_ecfps = self.get_valid_ecfp_vectors(qry_ecfp_)
+            indexes_ = self.binary_vector_to_indexes(valid_ecfps, context[3])
 
-            features[self.binary_vector_to_index(valid_ecfps, context[3])] = 1.
+            indexes = indexes + indexes_
+
+            for i in range(len(indexes)):
+                features[indexes[i]] = 1.
         else:
             raise ValueError('Invalid action')
 
@@ -402,7 +416,7 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
 
             # Getting the ECFP of the current molecule
             ecfps_trace = {}
-            AllChem.GetMorganFingerprint(MolFromSmiles(molgraph_builder.qu_mol_graph.to_smiles()), 0, bitInfo=ecfps_trace)
+            AllChem.GetMorganFingerprint(MolFromSmiles(molgraph_builder.qu_mol_graph.to_smiles()), int(self.ecfp / 2), bitInfo=ecfps_trace)
 
             # Putting atom ids as keys and the corresponding ECFP and radius as values
             ecfps = dict()
@@ -449,7 +463,7 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
         Selecting the action type according to the Q-learning strategy
         :param action_types_list: list of action types authorized
         :param evaluation_strategy: evaluation strategy
-        :param ecfps: list of ECFPs of the current molecule
+        :param ecfps: list of ECFP of the current molecule
         :param molgraph_builder: molecule graph builder
         :return: valid action to execute
         """
@@ -472,7 +486,7 @@ class DeterministQLearningActionSelectionStrategy(QLearningActionSelectionStrate
     Selection of the action type according to a determinist Q-learning strategy.
     """
 
-    def __init__(self, depth, number_of_accepted_atoms, alpha, epsilon, gamma,
+    def __init__(self, depth, number_of_accepted_atoms, alpha, epsilon, gamma, ecfp,
                  valid_ecfp_file_path=None, init_weights_file_path=None, preselect_action_type=True):
         """
         :param depth: number of consecutive executed actions before evaluation
@@ -486,8 +500,8 @@ class DeterministQLearningActionSelectionStrategy(QLearningActionSelectionStrate
         before selecting the actual action
         """
 
-        super().__init__(depth, number_of_accepted_atoms, valid_ecfp_file_path,init_weights_file_path,
-                         preselect_action_type)
+        super().__init__(depth, number_of_accepted_atoms, ecfp, valid_ecfp_file_path=valid_ecfp_file_path,
+                         init_weights_file_path=init_weights_file_path, preselect_action_type=preselect_action_type)
 
         # Initializing the hyperparameters of the Q-learning strategy
         self.epsilon = epsilon
@@ -524,7 +538,7 @@ class DeterministQLearningActionSelectionStrategy(QLearningActionSelectionStrate
         """
         :param action_types_list: list of action types authorized
         :param evaluation_strategy: evaluation strategy
-        :param ecfps: list of ECFP-0 of the current molecule
+        :param ecfps: list of ECFP of the current molecule
         :param molgraph_builder: graph builder of the current molecule
         :return: action selected
         """
@@ -772,7 +786,7 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
     Stochastic Q-Learning action selection strategy based on the success rate of the contexts
     """
 
-    def __init__(self, depth, number_of_accepted_atoms, epsilon,
+    def __init__(self, depth, number_of_accepted_atoms, epsilon, ecfp,
                  valid_ecfp_file_path=None, init_weights_file_path=None, preselect_action_type=True):
         """
         :param depth: number of consecutive executed actions before evaluation
@@ -784,7 +798,7 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
         before selecting the actual action
         """
 
-        super().__init__(depth, number_of_accepted_atoms, valid_ecfp_file_path=valid_ecfp_file_path,
+        super().__init__(depth, number_of_accepted_atoms, ecfp, valid_ecfp_file_path=valid_ecfp_file_path,
                  init_weights_file_path=init_weights_file_path, preselect_action_type=preselect_action_type)
 
         self.epsilon = epsilon
@@ -823,7 +837,7 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
         """
         :param action_types_list: list of action types authorized
         :param evaluation_strategy: evaluation strategy
-        :param ecfps: list of ECFP-0 of the current molecule
+        :param ecfps: list of ECFP of the current molecule
         :param molgraph_builder: graph builder of the current molecule
         :return: action selected
         """

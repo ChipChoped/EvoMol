@@ -340,6 +340,7 @@ def _parse_neighbour_generation_parameters(explicit_search_parameters, evaluatio
             alpha=explicit_search_parameters["alpha"],
             epsilon=explicit_search_parameters["epsilon"],
             gamma=explicit_search_parameters["gamma"],
+            ecfp=explicit_search_parameters["ecfp"],
             valid_ecfp_file_path=explicit_IO_parameters["valid_ecfp_file_path"],
             init_weights_file_path=explicit_IO_parameters["init_weights_file_path"]
         )
@@ -348,6 +349,7 @@ def _parse_neighbour_generation_parameters(explicit_search_parameters, evaluatio
             depth=explicit_search_parameters["mutation_max_depth"],
             number_of_accepted_atoms=len(action_spaces_parameters.accepted_atoms),
             epsilon=explicit_search_parameters["epsilon"],
+            ecfp=explicit_search_parameters["ecfp"],
             valid_ecfp_file_path=explicit_IO_parameters["valid_ecfp_file_path"],
             init_weights_file_path=explicit_IO_parameters["init_weights_file_path"]
         )
@@ -430,6 +432,7 @@ def _extract_explicit_search_parameters(parameters_dict):
         "alpha": input_search_parameters["alpha"] if "alpha" in input_search_parameters else 0.01,
         "epsilon": input_search_parameters["epsilon"] if "epsilon" in input_search_parameters else 0.2,
         "gamma": input_search_parameters["gamma"] if "gamma" in input_search_parameters else 0.99,
+        "ecfp": input_search_parameters["ecfp"] if "ecfp" in input_search_parameters else 0,
     }
 
     for parameter in input_search_parameters:
