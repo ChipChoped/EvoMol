@@ -342,7 +342,8 @@ def _parse_neighbour_generation_parameters(explicit_search_parameters, evaluatio
             gamma=explicit_QL_parameters["gamma"],
             ecfp=explicit_QL_parameters["ecfp"],
             valid_ecfp_file_path=explicit_QL_parameters["valid_ecfp_file_path"],
-            init_weights_file_path=explicit_QL_parameters["init_weights_file_path"]
+            init_weights_file_path=explicit_QL_parameters["init_weights_file_path"],
+            disable_updates=explicit_QL_parameters["disable_updates"]
         )
     elif explicit_search_parameters["neighbour_generation_strategy"] == StochasticQLearningActionSelectionStrategy:
         neighbour_generation_strategy = explicit_search_parameters["neighbour_generation_strategy"](
@@ -351,7 +352,8 @@ def _parse_neighbour_generation_parameters(explicit_search_parameters, evaluatio
             epsilon=explicit_QL_parameters["epsilon"],
             ecfp=explicit_QL_parameters["ecfp"],
             valid_ecfp_file_path=explicit_QL_parameters["valid_ecfp_file_path"],
-            init_weights_file_path=explicit_QL_parameters["init_weights_file_path"]
+            init_weights_file_path=explicit_QL_parameters["init_weights_file_path"],
+            disable_updates=explicit_QL_parameters["disable_updates"]
         )
     else:
         raise RuntimeWarning("Unrecognized neighbour generation strategy : " + str(
@@ -501,6 +503,7 @@ def _extract_explicit_QL_parameters(parameters_dict):
             "valid_ecfp_file_path"] if "valid_ecfp_file_path" in input_QL_parameters else None,
         "init_weights_file_path": input_QL_parameters[
             "init_weights_file_path"] if "init_weights_file_path" in input_QL_parameters else None,
+        "disable_updates": input_QL_parameters["disable_updates"] if "disable_updates" in input_QL_parameters else False,
     }
 
     for parameter in input_QL_parameters:

@@ -238,14 +238,15 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
     Selection of the action type according to a Q-learning strategy.
     """
 
-    def __init__(self, depth, number_of_accepted_atoms, ecfp,
-                 valid_ecfp_file_path=None, init_weights_file_path=None, preselect_action_type=True):
+    def __init__(self, depth, number_of_accepted_atoms, ecfp, valid_ecfp_file_path=None,
+                 init_weights_file_path=None, preselect_action_type=True, disable_updates=False):
         """
         :param depth: number of consecutive executed actions before evaluation
         :param number_of_accepted_atoms: number of accepted atoms in the molecule
         :param valid_ecfp_file_path: path to the file containing the valid ECFPs
         :param init_weights_file_path: initial weights for the Q-learning strategy
         :param preselect_action_type: whether to preselect the action type
+        :param disable_updates: whether to disable the updates of the Q-learning strategy
         before selecting the actual action
         """
 
@@ -273,6 +274,9 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
 
         # Feature vector of the current state needed for the update of the weights
         self.current_features = []
+
+        # Whether to disable the update of the weights
+        self.disable_updates = disable_updates
 
     def extract_valid_ecfps_from_file(self, file_path):
         """
@@ -496,8 +500,8 @@ class DeterministQLearningActionSelectionStrategy(QLearningActionSelectionStrate
     Selection of the action type according to a determinist Q-learning strategy.
     """
 
-    def __init__(self, depth, number_of_accepted_atoms, alpha, epsilon, gamma, ecfp,
-                 valid_ecfp_file_path=None, init_weights_file_path=None, preselect_action_type=True):
+    def __init__(self, depth, number_of_accepted_atoms, alpha, epsilon, gamma, ecfp, valid_ecfp_file_path=None,
+                 init_weights_file_path=None, preselect_action_type=True, disable_updates=False):
         """
         :param depth: number of consecutive executed actions before evaluation
         :param number_of_accepted_atoms: number of accepted atoms in the molecule
@@ -511,7 +515,8 @@ class DeterministQLearningActionSelectionStrategy(QLearningActionSelectionStrate
         """
 
         super().__init__(depth, number_of_accepted_atoms, ecfp, valid_ecfp_file_path=valid_ecfp_file_path,
-                         init_weights_file_path=init_weights_file_path, preselect_action_type=preselect_action_type)
+                         init_weights_file_path=init_weights_file_path, preselect_action_type=preselect_action_type,
+                         disable_updates=disable_updates)
 
         # Initializing the hyperparameters of the Q-learning strategy
         self.epsilon = epsilon
@@ -690,6 +695,10 @@ class DeterministQLearningActionSelectionStrategy(QLearningActionSelectionStrate
         :boolean_reward: boolean indicating whether the reward should be boolean or not
         """
 
+        # Checking if the updates are disabled
+        if self.disable_updates:
+            return
+
         # Checking the needed arguments
         try:
             molgraph_builder = args[1]
@@ -796,8 +805,8 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
     Stochastic Q-Learning action selection strategy based on the success rate of the contexts
     """
 
-    def __init__(self, depth, number_of_accepted_atoms, epsilon, ecfp,
-                 valid_ecfp_file_path=None, init_weights_file_path=None, preselect_action_type=True):
+    def __init__(self, depth, number_of_accepted_atoms, epsilon, ecfp, valid_ecfp_file_path=None,
+                 init_weights_file_path=None, preselect_action_type=True, disable_updates=False):
         """
         :param depth: number of consecutive executed actions before evaluation
         :param number_of_accepted_atoms: number of accepted atoms in the molecule
@@ -809,7 +818,8 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
         """
 
         super().__init__(depth, number_of_accepted_atoms, ecfp, valid_ecfp_file_path=valid_ecfp_file_path,
-                 init_weights_file_path=init_weights_file_path, preselect_action_type=preselect_action_type)
+                         init_weights_file_path=init_weights_file_path, preselect_action_type=preselect_action_type,
+                         disable_updates=disable_updates)
 
         self.epsilon = epsilon
 
@@ -956,6 +966,10 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
         :boolean_reward: boolean indicating whether the reward should be boolean or not
         """
 
+        # Checking if the updates are disabled
+        if self.disable_updates:
+            return
+
         # Checking the needed arguments
         try:
             action_type = args[2][0]
@@ -993,5 +1007,3 @@ class StochasticQLearningActionSelectionStrategy(QLearningActionSelectionStrateg
 
         # Decrementing the depth counter
         self.depth_counter -= 1
-
-        oui = 0
