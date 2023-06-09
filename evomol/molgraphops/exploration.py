@@ -295,8 +295,18 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
         :return: binary vector of valid ECFP
         """
 
-        # Can be optimized by using a dictionary for self.valid_ecfps
-        return [valid_ecfp in ecfps for valid_ecfp in self.valid_ecfps]
+        if self.ecfp == 0:
+            return [valid_ecfp in ecfps for valid_ecfp in self.valid_ecfps]
+        else:
+            vector = [False for _ in range(self.number_of_contexts)]
+
+            for ecfp in ecfps:
+                index = np.argwhere(self.valid_ecfps == ecfp)[0]
+
+                if index:
+                    vector[index[0]] = True
+
+        return vector
 
     def binary_vector_to_indexes(self, vector, context_id=0):
         """
