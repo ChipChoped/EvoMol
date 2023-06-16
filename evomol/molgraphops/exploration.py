@@ -305,10 +305,10 @@ class QLearningActionSelectionStrategy(NeighbourGenerationStrategy, Observer, AB
             vector = [False for _ in range(self.number_of_contexts)]
 
             for ecfp in ecfps:
-                index = np.argwhere(self.valid_ecfps == ecfp)[0]
+                index = np.argwhere(self.valid_ecfps == ecfp)
 
                 if index:
-                    vector[index[0]] = True
+                    vector[index[0][0]] = True
 
         return vector
 
