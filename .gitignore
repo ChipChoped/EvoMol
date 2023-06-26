@@ -1,21 +1,21 @@
-.idea
+/.idea/
 *__pycache__*
 
-/data/
-/examples/
+/data/ECFP/
+/data/EVO10/
+/data/GCF/
+
 /build/
-/examples/
 /EvoMol.egg-info/
 /evomol/test/
 /lib/
 /.ipynb_checkpoints/
 
+/examples/other_results
+/examples/qlearning/data/
+/examples/random/
+
 /debug.py
 /extract_descriptors.ipynb
 /random_action.ipynb
-/qlearning_script.py
-/qed_qlearning_script.py
-/qed_script.py
-/initial_molecule.smi
-/random_script.py
 /qlearning_script.py.lprof
