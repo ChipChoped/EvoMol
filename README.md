@@ -118,6 +118,20 @@ The ```"obj_function"``` attribute can take the following values. Multi-objectiv
 GuacaMol</a> benchmarks.
 
 
+### Approximate Q-learning
+
+The ```"approximate_q_learning"``` attribute can be set with a dictionary containing the following entries.
+
+* ```"ecfp``` : type of ECFP fingerprints to use (**0**).
+* ```"alpha"``` : learning rate (**0.01**).
+* ```"gamma"``` : discount factor (**0.98**).
+* ```"epsilon"``` : exploration rate (**0.2**).
+* ```"disable_updates``` : whether to disable the update of the weights (**False**).
+* ```"record_trained_weights"``` : whether to record the weights at the end of the training (**False**).
+* ```"init_weights_file_path"``` : path to the file containing the initial weights (**None**).
+* ```"valid_ecfp_file_path"``` : path to the file containing the valid ECFP fingerprints (**None**).
+
+
 ### Search space
 
 The ```"action_space_parameters"``` attribute can be set with a dictionary containing the following entries.
@@ -164,6 +178,7 @@ to their objective function value ("random_weighted") .
 * ```"neighbour_generation_strategy"```: strategy to generate neighbour candidates (mutation). By default, the type of
 perturbation is first drawn randomly, then the actual perturbation of previously selected type is drawn randomly among 
 the valid ones (**evomol.molgraphops.exploration.RandomActionTypeSelectionStrategy()**).
+* ```"improving_mutation_strategy"```: strategy to generate improving neighbour candidates (mutation).
 * ```"mutation_find_improver_tries"``` : maximum number of mutations to find an improver (**50**).
 * ```"guacamol_init_top_100"``` : whether to initialize the population with the 100 best scoring individuals of the 
 GuacaMol <a href="https://academic.oup.com/nar/article/45/D1/D945/2605707">ChEMBL</a> subset in case of taking the 
