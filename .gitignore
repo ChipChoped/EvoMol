@@ -12,8 +12,8 @@
 /.ipynb_checkpoints/
 
 /examples/other_results
-#/examples/qlearning/data/
-#/examples/random/
+/examples/qlearning/data/
+/examples/random/
 
 /debug.py
 /extract_descriptors.ipynb

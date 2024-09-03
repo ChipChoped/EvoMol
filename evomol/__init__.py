@@ -14,7 +14,8 @@ from .evaluation import EvaluationStrategy, GenericFunctionEvaluationStrategy, Q
 from .evaluation_dft import OPTEvaluationStrategy, SharedLastComputation
 from .evaluation_entropy import EntropyContribEvaluationStrategy
 from .molgraphops.default_actionspaces import generic_action_space
-from .molgraphops.exploration import RandomActionTypeSelectionStrategy
+from .molgraphops.exploration import RandomActionTypeSelectionStrategy, DeterministQLearningActionSelectionStrategy, \
+    StochasticQLearningActionSelectionStrategy
 from .mutation import KRandomGraphOpsImprovingMutationStrategy
 from .popalg import PopAlg
 from .stopcriterion import MultipleStopCriterionsStrategy, FileStopCriterion, KStepsStopCriterionStrategy, \
@@ -322,15 +323,55 @@ def _parse_action_space(parameters_dict):
     return action_spaces, action_spaces_parameters, explicit_action_space_parameters
 
 
+def _parse_neighbour_generation_parameters(explicit_search_parameters, evaluation_strategy, action_spaces, action_spaces_parameters,
+                                           search_space_parameters, explicit_IO_parameters, explicit_QL_parameters):
+    """
+    Parsing neighbour generation parameters
+    :param parameters_dict:
+    :return: Returning a NeighbourGenerationStrategy instance
+    """
+
+    if explicit_search_parameters["neighbour_generation_strategy"] == RandomActionTypeSelectionStrategy:
+        neighbour_generation_strategy = RandomActionTypeSelectionStrategy()
+    elif explicit_search_parameters["neighbour_generation_strategy"] == DeterministQLearningActionSelectionStrategy:
+        neighbour_generation_strategy = explicit_search_parameters["neighbour_generation_strategy"](
+            depth=explicit_search_parameters["mutation_max_depth"],
+            number_of_accepted_atoms=len(action_spaces_parameters.accepted_atoms),
+            alpha=explicit_QL_parameters["alpha"],
+            epsilon=explicit_QL_parameters["epsilon"],
+            gamma=explicit_QL_parameters["gamma"],
+            ecfp=explicit_QL_parameters["ecfp"],
+            valid_ecfp_file_path=explicit_QL_parameters["valid_ecfp_file_path"],
+            init_weights_file_path=explicit_QL_parameters["init_weights_file_path"],
+            disable_updates=explicit_QL_parameters["disable_updates"]
+        )
+    elif explicit_search_parameters["neighbour_generation_strategy"] == StochasticQLearningActionSelectionStrategy:
+        neighbour_generation_strategy = explicit_search_parameters["neighbour_generation_strategy"](
+            depth=explicit_search_parameters["mutation_max_depth"],
+            number_of_accepted_atoms=len(action_spaces_parameters.accepted_atoms),
+            epsilon=explicit_QL_parameters["epsilon"],
+            ecfp=explicit_QL_parameters["ecfp"],
+            valid_ecfp_file_path=explicit_QL_parameters["valid_ecfp_file_path"],
+            init_weights_file_path=explicit_QL_parameters["init_weights_file_path"],
+            disable_updates=explicit_QL_parameters["disable_updates"]
+        )
+    else:
+        raise RuntimeWarning("Unrecognized neighbour generation strategy : " + str(
+            explicit_search_parameters["neighbour_generation_strategy"]))
+
+    return neighbour_generation_strategy
+
+
 def _parse_mutation_parameters(explicit_search_parameters, evaluation_strategy, action_spaces,
-                               action_spaces_parameters, search_space_parameters, explicit_IO_parameters):
+                               action_spaces_parameters, search_space_parameters, explicit_IO_parameters,
+                               neighbour_generation_strategy):
     """
     Parsing mutation parameters
     :param parameters_dict:
     :return: Returning a MutationStrategy instance
     """
 
-    mutation_strategy = KRandomGraphOpsImprovingMutationStrategy(k=explicit_search_parameters["mutation_max_depth"],
+    mutation_strategy = explicit_search_parameters["improving_mutation_strategy"](k=explicit_search_parameters["mutation_max_depth"],
                                                                  max_n_try=explicit_search_parameters[
                                                                      "mutation_find_improver_tries"],
                                                                  evaluation_strategy=evaluation_strategy,
@@ -346,11 +387,10 @@ def _parse_mutation_parameters(explicit_search_parameters, evaluation_strategy, 
                                                                      "silly_molecules_reference_db_path"],
                                                                  sascore_threshold=search_space_parameters[
                                                                      "sascore_threshold"],
-                                                                 neighbour_gen_strategy=explicit_search_parameters[
-                                                                     "neighbour_generation_strategy"],
+                                                                 neighbour_gen_strategy=neighbour_generation_strategy,
                                                                  custom_filter_function=search_space_parameters[
-                                                                     "custom_filter_function"
-                                                                 ])
+                                                                     "custom_filter_function"]
+                                                                 )
 
 
     return mutation_strategy
@@ -388,7 +428,10 @@ def _extract_explicit_search_parameters(parameters_dict):
         "shuffle_init_pop": input_search_parameters[
             "shuffle_init_pop"] if "shuffle_init_pop" in input_search_parameters else False,
         "neighbour_generation_strategy": input_search_parameters["neighbour_generation_strategy"] if \
-            "neighbour_generation_strategy" in input_search_parameters else RandomActionTypeSelectionStrategy()}
+            "neighbour_generation_strategy" in input_search_parameters else RandomActionTypeSelectionStrategy,
+        "improving_mutation_strategy": input_search_parameters["improving_mutation_strategy"] if \
+            "improving_mutation_strategy" in input_search_parameters else KRandomGraphOpsImprovingMutationStrategy,
+    }
 
     for parameter in input_search_parameters:
         if parameter not in explicit_search_parameters:
@@ -431,7 +474,7 @@ def _extract_explicit_IO_parameters(parameters_dict):
         "evaluation_strategy_parameters": input_IO_parameters[
             "evaluation_strategy_parameters"] if "evaluation_strategy_parameters" in input_IO_parameters else None,
         "silly_molecules_reference_db_path": input_IO_parameters[
-            "silly_molecules_reference_db_path"] if "silly_molecules_reference_db_path" in input_IO_parameters else None
+            "silly_molecules_reference_db_path"] if "silly_molecules_reference_db_path" in input_IO_parameters else None,
     }
 
     for parameter in input_IO_parameters:
@@ -439,6 +482,35 @@ def _extract_explicit_IO_parameters(parameters_dict):
             raise RuntimeWarning("Unrecognized parameter in 'io_parameters' : " + str(parameter))
 
     return explicit_IO_parameters
+
+
+def _extract_explicit_QL_parameters(parameters_dict):
+    """
+    Building a complete dictionary of Q-Learning parameters
+    :param parameters_dict:
+    :return: dictionary of search parameters
+    """
+
+    input_QL_parameters = parameters_dict["ql_parameters"] if "ql_parameters" in parameters_dict else {}
+    explicit_QL_parameters = {
+        "alpha": input_QL_parameters["alpha"] if "alpha" in input_QL_parameters else 0.01,
+        "epsilon": input_QL_parameters["epsilon"] if "epsilon" in input_QL_parameters else 0.2,
+        "gamma": input_QL_parameters["gamma"] if "gamma" in input_QL_parameters else 0.98,
+        "ecfp": input_QL_parameters["ecfp"] if "ecfp" in input_QL_parameters else 0,
+        "record_trained_weights": input_QL_parameters[
+            "record_trained_weights"] if "record_trained_weights" in input_QL_parameters else False,
+        "valid_ecfp_file_path": input_QL_parameters[
+            "valid_ecfp_file_path"] if "valid_ecfp_file_path" in input_QL_parameters else None,
+        "init_weights_file_path": input_QL_parameters[
+            "init_weights_file_path"] if "init_weights_file_path" in input_QL_parameters else None,
+        "disable_updates": input_QL_parameters["disable_updates"] if "disable_updates" in input_QL_parameters else False,
+    }
+
+    for parameter in input_QL_parameters:
+        if parameter not in explicit_QL_parameters:
+            raise RuntimeWarning("Unrecognized parameter in 'ql_parameters' : " + str(parameter))
+
+    return explicit_QL_parameters
 
 
 def _parse_stop_criterion_strategy(explicit_search_parameters_dict, explicit_IO_parameters_dict):
@@ -493,7 +565,7 @@ def _read_smiles_list_from_file(smiles_list_path):
 
 
 def _build_instance(evaluation_strategy, mutation_strategy, stop_criterion_strategy, explicit_search_parameters_dict,
-                    explicit_IO_parameters_dict, explicit_action_space_parameters):
+                    explicit_IO_parameters_dict, explicit_action_space_parameters, explicit_QL_parameters_dict):
     """
     Building PopAlg instance
     :param evaluation_strategy: EvaluationStrategy instance
@@ -518,6 +590,7 @@ def _build_instance(evaluation_strategy, mutation_strategy, stop_criterion_strat
         problem_type=explicit_search_parameters_dict["problem_type"],
         record_history=explicit_IO_parameters_dict["record_history"],
         record_all_generated_individuals=explicit_IO_parameters_dict["record_all_generated_individuals"],
+        record_trained_weights=explicit_QL_parameters_dict["record_trained_weights"],
         shuffle_init_pop=explicit_search_parameters_dict["shuffle_init_pop"],
         external_tabu_list=explicit_IO_parameters_dict["external_tabu_list"],
         evaluation_strategy_parameters=explicit_IO_parameters_dict["evaluation_strategy_parameters"],
@@ -582,6 +655,9 @@ def run_model(parameters_dict):
     # Extracting IO parameters
     explicit_IO_parameters_dict = _extract_explicit_IO_parameters(parameters_dict)
 
+    # Extracting Q-Learning parameters
+    explicit_QL_parameters_dict = _extract_explicit_QL_parameters(parameters_dict)
+
     # Building objective function
     evaluation_strategy = _parse_objective_function_strategy(parameters_dict,
                                                              explicit_IO_parameters_dict=explicit_IO_parameters_dict,
@@ -590,13 +666,23 @@ def run_model(parameters_dict):
     # Building action space
     action_spaces, action_spaces_parameters, explicit_action_space_parameters = _parse_action_space(parameters_dict)
 
+    neighbour_generation_strategy = _parse_neighbour_generation_parameters(explicit_search_parameters=explicit_search_parameters_dict,
+                                                                         evaluation_strategy=evaluation_strategy,
+                                                                         action_spaces=action_spaces,
+                                                                         action_spaces_parameters=action_spaces_parameters,
+                                                                         search_space_parameters=explicit_action_space_parameters,
+                                                                         explicit_IO_parameters=explicit_IO_parameters_dict,
+                                                                         explicit_QL_parameters=explicit_QL_parameters_dict)
+
+
     # Building mutation strategy
     mutation_strategy = _parse_mutation_parameters(explicit_search_parameters=explicit_search_parameters_dict,
                                                    evaluation_strategy=evaluation_strategy,
                                                    action_spaces=action_spaces,
                                                    action_spaces_parameters=action_spaces_parameters,
                                                    search_space_parameters=explicit_action_space_parameters,
-                                                   explicit_IO_parameters=explicit_IO_parameters_dict)
+                                                   explicit_IO_parameters=explicit_IO_parameters_dict,
+                                                   neighbour_generation_strategy=neighbour_generation_strategy)
 
     # Building stop criterion strategy
     stop_criterion_strategy = _parse_stop_criterion_strategy(
@@ -609,7 +695,8 @@ def run_model(parameters_dict):
                               stop_criterion_strategy=stop_criterion_strategy,
                               explicit_search_parameters_dict=explicit_search_parameters_dict,
                               explicit_IO_parameters_dict=explicit_IO_parameters_dict,
-                              explicit_action_space_parameters=explicit_action_space_parameters)
+                              explicit_action_space_parameters=explicit_action_space_parameters,
+                              explicit_QL_parameters_dict=explicit_QL_parameters_dict)
 
     # GuacaMol special case
     if is_or_contains_undefined_GuacaMol_evaluation_strategy(evaluation_strategy):
