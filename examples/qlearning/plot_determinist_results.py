@@ -44,7 +44,7 @@ def main(argv):
 
 
     # addA weights evolution over steps
-    addA_reader = read_csv("./" + ql_path + "/addA_weights.csv")
+    addA_reader = read_csv("./data/" + ql_path + "/addA_weights.csv")
 
     plt.figure("addA_weights", figsize=(16, 9))
     # plt.title("addA weights")
@@ -57,7 +57,7 @@ def main(argv):
 
 
     # rmA weights evolution over steps
-    rmA_reader = read_csv("./" + ql_path + "/rmA_weights.csv")
+    rmA_reader = read_csv("./data/" + ql_path + "/rmA_weights.csv")
 
     plt.figure("rmA_weights", figsize=(16, 9))
     # plt.title("rmA weights")
@@ -70,7 +70,7 @@ def main(argv):
 
 
     # chB weights evolution over steps
-    chB_reader = read_csv("./" + ql_path + "/chB_weights.csv")
+    chB_reader = read_csv("./data/" + ql_path + "/chB_weights.csv")
 
     plt.figure("chB_weights", figsize=(16, 9))
     # plt.title("chB weights")
@@ -81,8 +81,8 @@ def main(argv):
     plt.tight_layout()
     plt.savefig("./results_" + ql_path + "/chB_weights.png")
 
-    ql_steps_reader = read_csv("./" + ql_path + "/steps.csv")
-    rdm_steps_reader = read_csv("./" + rdm_path + "/steps.csv")
+    ql_steps_reader = read_csv("./data/" + ql_path + "/steps.csv")
+    rdm_steps_reader = read_csv("../random/" + rdm_path + "/steps.csv")
 
 
     # Mean of weights evolution over steps for each action
@@ -222,8 +222,8 @@ def main(argv):
 
 
     # Number of molecules discarded by the silly walks filter over steps
-    ql_silly_walks_reader = read_csv("./" + ql_path + "/steps.csv")
-    rdm_silly_walks_reader = read_csv("./" + rdm_path + "/steps.csv")
+    ql_silly_walks_reader = read_csv("./data/" + ql_path + "/steps.csv")
+    rdm_silly_walks_reader = read_csv("../random/" + rdm_path + "/steps.csv")
 
     ql_silly_walks = np.array(ql_silly_walks_reader['n_discarded_sillywalks'])
     rdm_silly_walks = np.array(rdm_silly_walks_reader['n_discarded_sillywalks'])
